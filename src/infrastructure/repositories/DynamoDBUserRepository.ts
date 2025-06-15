@@ -12,10 +12,12 @@ export class DynamoDBUserRepository implements IUserRepository {
   }
 
   async findById(id: string): Promise<User | null> {
-    const result = await this.dynamoDB.get({
-      TableName: this.tableName,
-      Key: { id },
-    }).promise();
+    const result = await this.dynamoDB
+      .get({
+        TableName: this.tableName,
+        Key: { id },
+      })
+      .promise();
 
     if (!result.Item) {
       return null;
@@ -25,13 +27,15 @@ export class DynamoDBUserRepository implements IUserRepository {
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    const result = await this.dynamoDB.scan({
-      TableName: this.tableName,
-      FilterExpression: 'email = :email',
-      ExpressionAttributeValues: {
-        ':email': email,
-      },
-    }).promise();
+    const result = await this.dynamoDB
+      .scan({
+        TableName: this.tableName,
+        FilterExpression: 'email = :email',
+        ExpressionAttributeValues: {
+          ':email': email,
+        },
+      })
+      .promise();
 
     if (!result.Items || result.Items.length === 0) {
       return null;
@@ -41,35 +45,43 @@ export class DynamoDBUserRepository implements IUserRepository {
   }
 
   async findAll(): Promise<User[]> {
-    const result = await this.dynamoDB.scan({
-      TableName: this.tableName,
-    }).promise();
+    const result = await this.dynamoDB
+      .scan({
+        TableName: this.tableName,
+      })
+      .promise();
 
-    return (result.Items || []).map(item => new User(item as any));
+    return (result.Items || []).map((item) => new User(item as any));
   }
 
   async create(user: User): Promise<User> {
-    await this.dynamoDB.put({
-      TableName: this.tableName,
-      Item: user.toJSON(),
-    }).promise();
+    await this.dynamoDB
+      .put({
+        TableName: this.tableName,
+        Item: user.toJSON(),
+      })
+      .promise();
 
     return user;
   }
 
   async update(user: User): Promise<User> {
-    await this.dynamoDB.put({
-      TableName: this.tableName,
-      Item: user.toJSON(),
-    }).promise();
+    await this.dynamoDB
+      .put({
+        TableName: this.tableName,
+        Item: user.toJSON(),
+      })
+      .promise();
 
     return user;
   }
 
   async delete(id: string): Promise<void> {
-    await this.dynamoDB.delete({
-      TableName: this.tableName,
-      Key: { id },
-    }).promise();
+    await this.dynamoDB
+      .delete({
+        TableName: this.tableName,
+        Key: { id },
+      })
+      .promise();
   }
-} 
+}

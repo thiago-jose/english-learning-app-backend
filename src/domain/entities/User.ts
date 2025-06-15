@@ -50,4 +50,4 @@ export class User {
       updatedAt: this._updatedAt,
     };
   }
-} 
+}

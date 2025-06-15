@@ -10,11 +10,11 @@ async function generateEnvFile(env: string): Promise<void> {
   try {
     const stackName = `english-learning-app-backend-${env}`;
     const cloudFormation = new CloudFormation();
-    
+
     // Get stack outputs
     const { Stacks } = await cloudFormation.describeStacks({ StackName: stackName }).promise();
     const stack = Stacks?.[0];
-    
+
     if (!stack) {
       throw new Error(`Stack ${stackName} not found`);
     }
@@ -32,11 +32,11 @@ async function generateEnvFile(env: string): Promise<void> {
     const envVars: EnvConfig = {
       NODE_ENV: env,
       AWS_REGION: process.env.AWS_REGION || 'us-east-1',
-      ...envConfig.Parameters
+      ...envConfig.Parameters,
     };
 
     // Add stack outputs
-    stack.Outputs?.forEach(output => {
+    stack.Outputs?.forEach((output) => {
       if (output.OutputKey && output.OutputValue) {
         envVars[output.OutputKey] = output.OutputValue;
       }
@@ -65,4 +65,4 @@ if (!env) {
   process.exit(1);
 }
 
-generateEnvFile(env); 
+generateEnvFile(env);

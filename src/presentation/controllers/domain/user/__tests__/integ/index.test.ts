@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { DynamoDB } from 'aws-sdk';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 
@@ -17,12 +16,14 @@ function getTestConfig(): TestConfig {
   const region = process.env.AWS_REGION || 'us-east-1';
 
   if (!apiEndpoint) {
-    throw new Error('Required environment variables not found. Please run generate-env script first.');
+    throw new Error(
+      'Required environment variables not found. Please run generate-env script first.'
+    );
   }
 
   return {
     apiEndpoint,
-    region
+    region,
   };
 }
 
@@ -33,21 +34,21 @@ describe('User Controller Integration Tests', () => {
 
   beforeAll(() => {
     // Get test configuration from environment variables
-    config = getTestConfig();    
+    config = getTestConfig();
 
     // Configure API client
     apiClient = axios.create({
       baseURL: config.apiEndpoint,
       headers: {
-        'Content-Type': 'application/json'
-      }
+        'Content-Type': 'application/json',
+      },
     });
   });
 
   it('should create a new user', async () => {
     const userData = {
       email: 'test@example.com',
-      name: 'Test User'
+      name: 'Test User',
     };
 
     const response = await apiClient.post('/users', userData);
@@ -83,7 +84,7 @@ describe('User Controller Integration Tests', () => {
 
   it('should update a user', async () => {
     const updateData = {
-      name: 'Updated User'
+      name: 'Updated User',
     };
 
     const response = await apiClient.put(`/users/${createdUserId}`, updateData);
@@ -126,4 +127,4 @@ describe('User Controller Integration Tests', () => {
       expect(error.response.status).toBe(400);
     }
   });
-}); 
+});

@@ -20,4 +20,4 @@ export function mapOpenApiTypeToDomain<T>(openApiData: any): T {
     createdAt: openApiData.createdAt ? new Date(openApiData.createdAt) : new Date(),
     updatedAt: openApiData.updatedAt ? new Date(openApiData.updatedAt) : new Date(),
   } as T;
-} 
+}

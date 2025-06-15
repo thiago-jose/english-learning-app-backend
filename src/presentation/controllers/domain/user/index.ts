@@ -1,7 +1,6 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { CreateUserUseCase } from '../../../../application/use-cases/CreateUserUseCase';
 import { DynamoDBUserRepository } from '../../../../infrastructure/repositories/DynamoDBUserRepository';
-import { mapOpenApiTypeToDomain } from '../../utils';
 
 const userRepository = new DynamoDBUserRepository(process.env.USERS_TABLE_NAME || '');
 const createUserUseCase = new CreateUserUseCase(userRepository);
@@ -15,7 +14,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         if (event.pathParameters?.userId) {
           return await getUserById(event);
         }
-        return await getAllUsers(event);
+        return await getAllUsers();
       case 'PUT':
         return await updateUser(event);
       case 'DELETE':
@@ -38,7 +37,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 async function createUser(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const userData = JSON.parse(event.body || '{}');
   const user = await createUserUseCase.execute(userData);
-  
+
   return {
     statusCode: 201,
     body: JSON.stringify(user.toJSON()),
@@ -68,11 +67,11 @@ async function getUserById(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
   };
 }
 
-async function getAllUsers(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
+async function getAllUsers(): Promise<APIGatewayProxyResult> {
   const users = await userRepository.findAll();
   return {
     statusCode: 200,
-    body: JSON.stringify(users.map(user => user.toJSON())),
+    body: JSON.stringify(users.map((user) => user.toJSON())),
   };
 }
 
@@ -128,4 +127,4 @@ async function deleteUser(event: APIGatewayProxyEvent): Promise<APIGatewayProxyR
     statusCode: 204,
     body: '',
   };
-} 
+}
