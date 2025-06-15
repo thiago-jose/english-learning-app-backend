@@ -11,18 +11,6 @@
       "Project": "english-learning-app"
     }
   },
-  "test": {
-    "parameters": {
-      "Environment": "test",
-      "ApiStageName": "test",
-      "LogLevel": "DEBUG",
-      "CorsAllowOrigin": "*"
-    },
-    "tags": {
-      "Environment": "test",
-      "Project": "english-learning-app"
-    }
-  },
   "prod": {
     "parameters": {
       "Environment": "prod",
