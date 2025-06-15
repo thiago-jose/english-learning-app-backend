@@ -1,0 +1,38 @@
+{
+  "dev": {
+    "parameters": {
+      "Environment": "dev",
+      "ApiStageName": "dev",
+      "LogLevel": "DEBUG",
+      "CorsAllowOrigin": "*"
+    },
+    "tags": {
+      "Environment": "dev",
+      "Project": "english-learning-app"
+    }
+  },
+  "test": {
+    "parameters": {
+      "Environment": "test",
+      "ApiStageName": "test",
+      "LogLevel": "DEBUG",
+      "CorsAllowOrigin": "*"
+    },
+    "tags": {
+      "Environment": "test",
+      "Project": "english-learning-app"
+    }
+  },
+  "prod": {
+    "parameters": {
+      "Environment": "prod",
+      "ApiStageName": "prod",
+      "LogLevel": "ERROR",
+      "CorsAllowOrigin": "https://your-frontend-domain.com"
+    },
+    "tags": {
+      "Environment": "prod",
+      "Project": "english-learning-app"
+    }
+  }
+} 
