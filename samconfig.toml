@@ -1,0 +1,36 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "english-learning-app-dev"
+s3_bucket = "english-learning-app-sam-artifacts"
+s3_prefix = "english-learning-app-dev"
+region = "us-east-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "Environment=dev"
+image_repositories = []
+
+[dev]
+[dev.deploy]
+[dev.deploy.parameters]
+stack_name = "english-learning-app-dev"
+s3_bucket = "english-learning-app-sam-artifacts"
+s3_prefix = "english-learning-app-dev"
+region = "us-east-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "Environment=dev"
+image_repositories = []
+
+[prod]
+[prod.deploy]
+[prod.deploy.parameters]
+stack_name = "english-learning-app-prod"
+s3_bucket = "english-learning-app-sam-artifacts"
+s3_prefix = "english-learning-app-prod"
+region = "us-east-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "Environment=prod"
+image_repositories = [] 
