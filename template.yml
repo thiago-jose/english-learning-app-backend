@@ -56,14 +56,37 @@ Resources:
   UsersFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/
-      Handler: presentation/controllers/domain/user/index.handler
+      CodeUri: ./
+      Handler: dist/presentation/controllers/domain/user/index.handler
+      Events:
+        # Handle all users routes
+        UsersProxy:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGatewayApi
+            Path: /users/{proxy+}
+            Method: ANY
+        UsersRoot:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGatewayApi
+            Path: /users
+            Method: ANY
+        # Health check endpoint
+        HealthCheck:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGatewayApi
+            Path: /health
+            Method: GET
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref UsersTable
       Environment:
         Variables:
           USERS_TABLE_NAME: !Ref UsersTable
+    Metadata:
+      BuildMethod: makefile
 
   # Lambda Permission for API Gateway
   UsersFunctionPermission:
@@ -72,39 +95,7 @@ Resources:
       FunctionName: !Ref UsersFunction
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "${ApiGatewayApi}/*/GET/users"
-  
-  UsersFunctionPermissionPost:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !Ref UsersFunction
-      Action: lambda:InvokeFunction
-      Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "${ApiGatewayApi}/*/POST/users"
-      
-  UsersFunctionPermissionGetById:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !Ref UsersFunction
-      Action: lambda:InvokeFunction
-      Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "${ApiGatewayApi}/*/GET/users/*"
-      
-  UsersFunctionPermissionPut:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !Ref UsersFunction
-      Action: lambda:InvokeFunction
-      Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "${ApiGatewayApi}/*/PUT/users/*"
-      
-  UsersFunctionPermissionDelete:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !Ref UsersFunction
-      Action: lambda:InvokeFunction
-      Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "${ApiGatewayApi}/*/DELETE/users/*"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayApi}/*/*"
 
 Outputs:
   ApiEndpoint:
@@ -113,3 +104,6 @@ Outputs:
   UsersTableName:
     Description: Users DynamoDB table name
     Value: !Ref UsersTable
+  ApiGatewayId:
+    Description: API Gateway ID
+    Value: !Ref ApiGatewayApi

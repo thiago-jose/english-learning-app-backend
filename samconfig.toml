@@ -1,5 +1,12 @@
 version = 0.1
+
 [default]
+[default.build]
+[default.build.parameters]
+use_container = false
+cached = true
+parallel = true
+
 [default.deploy]
 [default.deploy.parameters]
 stack_name = "english-learning-app-dev"
@@ -12,6 +19,12 @@ parameter_overrides = "Environment=dev"
 image_repositories = []
 
 [dev]
+[dev.build]
+[dev.build.parameters]
+use_container = false
+cached = true
+parallel = true
+
 [dev.deploy]
 [dev.deploy.parameters]
 stack_name = "english-learning-app-dev"
@@ -24,6 +37,12 @@ parameter_overrides = "Environment=dev"
 image_repositories = []
 
 [prod]
+[prod.build]
+[prod.build.parameters]
+use_container = false
+cached = true
+parallel = true
+
 [prod.deploy]
 [prod.deploy.parameters]
 stack_name = "english-learning-app-prod"
@@ -33,4 +52,4 @@ region = "us-east-1"
 confirm_changeset = true
 capabilities = "CAPABILITY_IAM"
 parameter_overrides = "Environment=prod"
-image_repositories = [] 
+image_repositories = []

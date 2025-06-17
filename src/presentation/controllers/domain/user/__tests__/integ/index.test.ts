@@ -3,8 +3,7 @@ import * as dotenv from 'dotenv';
 import * as path from 'path';
 
 // Load environment variables
-const env = process.env.NODE_ENV || 'dev';
-dotenv.config({ path: path.resolve(process.cwd(), `.env.${env}`) });
+dotenv.config();
 
 interface TestConfig {
   apiEndpoint: string;
@@ -12,7 +11,7 @@ interface TestConfig {
 }
 
 function getTestConfig(): TestConfig {
-  const apiEndpoint = process.env.ApiEndpoint;
+  const apiEndpoint = process.env.API_ENDPOINT;
   const region = process.env.AWS_REGION || 'us-east-1';
 
   if (!apiEndpoint) {
