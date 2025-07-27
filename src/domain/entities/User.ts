@@ -1,9 +1,20 @@
+import crypto from 'crypto';
+
 export interface UserProps {
   id?: string;
   email: string;
   name: string;
   createdAt?: Date;
   updatedAt?: Date;
+}
+
+// Interface for JSON representation with required fields
+export interface UserJSON {
+  id: string;
+  email: string;
+  name: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export class User {
@@ -41,7 +52,7 @@ export class User {
     return this._updatedAt;
   }
 
-  toJSON(): UserProps {
+  toJSON(): UserJSON {
     return {
       id: this._id,
       email: this._email,
@@ -49,5 +60,14 @@ export class User {
       createdAt: this._createdAt,
       updatedAt: this._updatedAt,
     };
+  }
+
+  static fromUpdate(existingUser: User, updates: Partial<UserProps>): User {
+    const existingData = existingUser.toJSON();
+    return new User({
+      ...existingData,
+      ...updates,
+      updatedAt: new Date(), // Always update the timestamp
+    });
   }
 }

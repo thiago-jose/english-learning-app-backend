@@ -1,14 +1,18 @@
 import { DynamoDB } from 'aws-sdk';
 import { User } from '../../domain/entities/User';
 import { IUserRepository } from '../../domain/repositories/IUserRepository';
+import { IUserMapper } from '../mappers/IUserMapper';
+import { UserDynamoDBItem } from '../mappers/types';
 
 export class DynamoDBUserRepository implements IUserRepository {
   private readonly tableName: string;
   private readonly dynamoDB: DynamoDB.DocumentClient;
+  private readonly userMapper: IUserMapper;
 
-  constructor(tableName: string) {
+  constructor(tableName: string, userMapper: IUserMapper) {
     this.tableName = tableName;
     this.dynamoDB = new DynamoDB.DocumentClient();
+    this.userMapper = userMapper;
   }
 
   async findById(id: string): Promise<User | null> {
@@ -23,7 +27,7 @@ export class DynamoDBUserRepository implements IUserRepository {
       return null;
     }
 
-    return new User(result.Item as any);
+    return this.userMapper.toDomain(result.Item as UserDynamoDBItem);
   }
 
   async findByEmail(email: string): Promise<User | null> {
@@ -41,7 +45,7 @@ export class DynamoDBUserRepository implements IUserRepository {
       return null;
     }
 
-    return new User(result.Items[0] as any);
+    return this.userMapper.toDomain(result.Items[0] as UserDynamoDBItem);
   }
 
   async findAll(): Promise<User[]> {
@@ -51,14 +55,18 @@ export class DynamoDBUserRepository implements IUserRepository {
       })
       .promise();
 
-    return (result.Items || []).map((item) => new User(item as any));
+    return (result.Items || []).map((item) =>
+      this.userMapper.toDomain(item as UserDynamoDBItem)
+    );
   }
 
   async create(user: User): Promise<User> {
+    const dynamoItem = this.userMapper.toDynamoDB(user);
+
     await this.dynamoDB
       .put({
         TableName: this.tableName,
-        Item: user.toJSON(),
+        Item: dynamoItem,
       })
       .promise();
 
@@ -66,10 +74,12 @@ export class DynamoDBUserRepository implements IUserRepository {
   }
 
   async update(user: User): Promise<User> {
+    const dynamoItem = this.userMapper.toDynamoDB(user);
+
     await this.dynamoDB
       .put({
         TableName: this.tableName,
-        Item: user.toJSON(),
+        Item: dynamoItem,
       })
       .promise();
 

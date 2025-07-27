@@ -1,6 +1,5 @@
 import axios from 'axios';
 import * as dotenv from 'dotenv';
-import * as path from 'path';
 
 // Load environment variables
 dotenv.config();

@@ -1,8 +1,11 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { CreateUserUseCase } from '../../../../application/use-cases/CreateUserUseCase';
 import { DynamoDBUserRepository } from '../../../../infrastructure/repositories/DynamoDBUserRepository';
+import { UserMapper } from '../../../../infrastructure/mappers/UserMapper';
+import { User } from '../../../../domain/entities/User';
 
-const userRepository = new DynamoDBUserRepository(process.env.USERS_TABLE_NAME || '');
+const userMapper = new UserMapper();
+const userRepository = new DynamoDBUserRepository(process.env.USERS_TABLE_NAME || '', userMapper);
 const createUserUseCase = new CreateUserUseCase(userRepository);
 
 export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
@@ -36,6 +39,14 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
 async function createUser(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const userData = JSON.parse(event.body || '{}');
+  
+  if (!userData.email || !userData.name) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ message: 'Email and name are required' }),
+    };
+  }
+
   const user = await createUserUseCase.execute(userData);
 
   return {
@@ -93,11 +104,10 @@ async function updateUser(event: APIGatewayProxyEvent): Promise<APIGatewayProxyR
     };
   }
 
-  const updatedUser = await userRepository.update({
-    ...existingUser,
-    ...userData,
-    id: userId,
-  });
+  // Create updated user using the static method
+  const updatedUser = await userRepository.update(
+    User.fromUpdate(existingUser, { ...userData, id: userId })
+  );
 
   return {
     statusCode: 200,
