@@ -55,9 +55,7 @@ export class DynamoDBUserRepository implements IUserRepository {
       })
       .promise();
 
-    return (result.Items || []).map((item) =>
-      this.userMapper.toDomain(item as UserDynamoDBItem)
-    );
+    return (result.Items || []).map((item) => this.userMapper.toDomain(item as UserDynamoDBItem));
   }
 
   async create(user: User): Promise<User> {

@@ -72,4 +72,4 @@ describe('UserMapper', () => {
       expect(convertedUser.updatedAt).toEqual(originalUser.updatedAt);
     });
   });
-}); 
+});

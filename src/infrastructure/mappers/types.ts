@@ -5,4 +5,4 @@ export interface UserDynamoDBItem {
   name: string;
   createdAt: string; // ISO string format
   updatedAt: string; // ISO string format
-} 
+}

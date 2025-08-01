@@ -1,15 +1,10 @@
 import * as AWS from 'aws-sdk';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as dotenv from 'dotenv';
 
 // Configure AWS SDK
 AWS.config.update({ region: 'us-east-1' });
 
-interface EnvConfig {
-  apiEndpoint: string;
-  usersTableName: string;
-}
 
 async function generateEnvFile(env: string): Promise<void> {
   try {
@@ -22,16 +17,41 @@ async function generateEnvFile(env: string): Promise<void> {
     const outputs = stack?.Outputs || [];
 
     // Extract required values
-    const apiEndpoint = outputs.find(output => output.OutputKey === 'ApiEndpoint')?.OutputValue;
-    const usersTableName = outputs.find(output => output.OutputKey === 'UsersTableName')?.OutputValue;
+    const apiEndpoint = outputs.find((output) => output.OutputKey === 'ApiEndpoint')?.OutputValue;
+    const usersTableName = outputs.find(
+      (output) => output.OutputKey === 'UsersTableName'
+    )?.OutputValue;
+    const wordsTableName = outputs.find(
+      (output) => output.OutputKey === 'WordsTableName'
+    )?.OutputValue;
+    const transcriptionsTableName = outputs.find(
+      (output) => output.OutputKey === 'TranscriptionsTableName'
+    )?.OutputValue;
+    const userProgressTableName = outputs.find(
+      (output) => output.OutputKey === 'UserProgressTableName'
+    )?.OutputValue;
+    const audioFilesBucketName = outputs.find(
+      (output) => output.OutputKey === 'AudioFilesBucketName'
+    )?.OutputValue;
 
     if (!apiEndpoint || !usersTableName) {
-      throw new Error('Required stack outputs not found');
+      throw new Error('Required stack outputs not found: ApiEndpoint and UsersTableName are mandatory');
     }
+
+    // Use fallback values for optional outputs that might not exist yet
+    const fallbackWordsTableName = wordsTableName || `${env}-words`;
+    const fallbackTranscriptionsTableName = transcriptionsTableName || `${env}-transcriptions`;
+    const fallbackUserProgressTableName = userProgressTableName || `${env}-user-progress`;
+    const fallbackAudioFilesBucketName = audioFilesBucketName || `${env}-english-learning-audio-files`;
 
     // Create .env file content
     const envContent = `API_ENDPOINT=${apiEndpoint}
 USERS_TABLE_NAME=${usersTableName}
+WORDS_TABLE_NAME=${fallbackWordsTableName}
+TRANSCRIPTIONS_TABLE_NAME=${fallbackTranscriptionsTableName}
+USER_PROGRESS_TABLE_NAME=${fallbackUserProgressTableName}
+STORAGE_BUCKET_NAME=${fallbackAudioFilesBucketName}
+AWS_REGION=us-east-1
 NODE_ENV=${env}
 `;
 
@@ -53,7 +73,7 @@ if (!env) {
   process.exit(1);
 }
 
-generateEnvFile(env).catch(error => {
+generateEnvFile(env).catch((error) => {
   console.error('Failed to generate environment file:', error);
   process.exit(1);
 });

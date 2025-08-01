@@ -23,4 +23,4 @@ export class UserMapper implements IUserMapper {
       updatedAt: userData.updatedAt.toISOString(),
     };
   }
-} 
+}

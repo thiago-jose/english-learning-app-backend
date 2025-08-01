@@ -39,7 +39,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
 async function createUser(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   const userData = JSON.parse(event.body || '{}');
-  
+
   if (!userData.email || !userData.name) {
     return {
       statusCode: 400,

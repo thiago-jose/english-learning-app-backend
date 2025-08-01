@@ -28,10 +28,6 @@ Resources:
     Type: AWS::Serverless::Api
     Properties:
       StageName: !Ref Environment
-      Cors:
-        AllowMethods: "'*'"
-        AllowHeaders: "'*'"
-        AllowOrigin: "'*'"
       OpenApiVersion: '3.0.1'
       DefinitionBody:
         Fn::Transform:
@@ -51,6 +47,114 @@ Resources:
       KeySchema:
         - AttributeName: id
           KeyType: HASH
+
+  WordsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${Environment}-words
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: nextReviewDate
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: UserIdIndex
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+        - IndexName: UserIdReviewIndex
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: nextReviewDate
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  TranscriptionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${Environment}-transcriptions
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: jobName
+          AttributeType: S
+        - AttributeName: createdAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: UserIdIndex
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: JobNameIndex
+          KeySchema:
+            - AttributeName: jobName
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  UserProgressTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${Environment}-user-progress
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+
+  # S3 Bucket for Audio Files
+  AudioFilesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${Environment}-english-learning-audio-files
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - GET
+              - PUT
+              - POST
+              - DELETE
+            AllowedOrigins:
+              - '*'
+            MaxAge: 3600
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldAudioFiles
+            Status: Enabled
+            ExpirationInDays: 90
+          - Id: DeleteOldTranscriptions
+            Status: Enabled
+            Prefix: transcriptions/
+            ExpirationInDays: 30
 
   # Lambda Functions
   UsersFunction:
@@ -88,7 +192,127 @@ Resources:
     Metadata:
       BuildMethod: makefile
 
-  # Lambda Permission for API Gateway
+# TEMPORARILY COMMENTED OUT - WILL UNCOMMENT AFTER HANDLERS ARE BUILT
+  # WordsFunction:
+  #   Type: AWS::Serverless::Function
+  #   Properties:
+  #     CodeUri: ./
+  #     Handler: dist/presentation/controllers/domain/word/index.handler
+  #     Events:
+  #       # Handle all words routes
+  #       WordsProxy:
+  #         Type: Api
+  #         Properties:
+  #           RestApiId: !Ref ApiGatewayApi
+  #           Path: /words/{proxy+}
+  #           Method: ANY
+  #       WordsRoot:
+  #         Type: Api
+  #         Properties:
+  #           RestApiId: !Ref ApiGatewayApi
+  #           Path: /words
+  #           Method: ANY
+  #     Policies:
+  #       - DynamoDBCrudPolicy:
+  #           TableName: !Ref WordsTable
+  #       - DynamoDBCrudPolicy:
+  #           TableName: !Ref UserProgressTable
+  #       - Statement:
+  #           - Effect: Allow
+  #             Action:
+  #               - bedrock:InvokeModel
+  #             Resource: 
+  #               - !Sub "arn:aws:bedrock:${AWS::Region}::foundation-model/anthropic.claude-3-haiku-20240307-v1:0"
+  #       - S3ReadPolicy:
+  #           BucketName: !Ref AudioFilesBucket
+  #       - S3WritePolicy:
+  #           BucketName: !Ref AudioFilesBucket
+  #     Environment:
+  #       Variables:
+  #         WORDS_TABLE_NAME: !Ref WordsTable
+  #         USER_PROGRESS_TABLE_NAME: !Ref UserProgressTable
+  #         STORAGE_BUCKET_NAME: !Ref AudioFilesBucket
+  #   Metadata:
+  #     BuildMethod: makefile
+
+  # TranscriptionFunction:
+  #   Type: AWS::Serverless::Function
+  #   Properties:
+  #     CodeUri: ./
+  #     Handler: dist/presentation/controllers/domain/transcription/index.handler
+  #     Events:
+  #       # Handle all transcription routes
+  #       TranscriptionProxy:
+  #         Type: Api
+  #         Properties:
+  #           RestApiId: !Ref ApiGatewayApi
+  #           Path: /transcription/{proxy+}
+  #           Method: ANY
+  #       TranscriptionRoot:
+  #         Type: Api
+  #         Properties:
+  #           RestApiId: !Ref ApiGatewayApi
+  #           Path: /transcription
+  #           Method: ANY
+  #     Policies:
+  #       - DynamoDBCrudPolicy:
+  #           TableName: !Ref TranscriptionsTable
+  #       - Statement:
+  #           - Effect: Allow
+  #             Action:
+  #               - transcribe:StartTranscriptionJob
+  #               - transcribe:GetTranscriptionJob
+  #               - transcribe:ListTranscriptionJobs
+  #             Resource: "*"
+  #       - S3ReadPolicy:
+  #           BucketName: !Ref AudioFilesBucket
+  #       - S3WritePolicy:
+  #           BucketName: !Ref AudioFilesBucket
+  #     Environment:
+  #       Variables:
+  #         TRANSCRIPTIONS_TABLE_NAME: !Ref TranscriptionsTable
+  #         STORAGE_BUCKET_NAME: !Ref AudioFilesBucket
+  #   Metadata:
+  #     BuildMethod: makefile
+
+  AudioFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./
+      Handler: dist/presentation/controllers/domain/audio/index.handler
+      Events:
+        # Handle all audio routes
+        AudioProxy:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGatewayApi
+            Path: /audio/{proxy+}
+            Method: ANY
+        AudioRoot:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGatewayApi
+            Path: /audio
+            Method: ANY
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref AudioFilesBucket
+        - S3WritePolicy:
+            BucketName: !Ref AudioFilesBucket
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObjectMetadata
+                - s3:GetObjectAttributes
+                - s3:DeleteObject
+              Resource: !Sub "${AudioFilesBucket.Arn}/*"
+      Environment:
+        Variables:
+          STORAGE_BUCKET_NAME: !Ref AudioFilesBucket
+    Metadata:
+      BuildMethod: makefile
+
+  # Lambda Permissions for API Gateway
   UsersFunctionPermission:
     Type: AWS::Lambda::Permission
     Properties:
@@ -97,13 +321,99 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayApi}/*/*"
 
+  # TEMPORARILY COMMENTED OUT - WILL UNCOMMENT AFTER HANDLERS ARE BUILT
+  # WordsFunctionPermission:
+  #   Type: AWS::Lambda::Permission
+  #   Properties:
+  #     FunctionName: !Ref WordsFunction
+  #     Action: lambda:InvokeFunction
+  #     Principal: apigateway.amazonaws.com
+  #     SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayApi}/*/*"
+
+  # TranscriptionFunctionPermission:
+  #   Type: AWS::Lambda::Permission
+  #   Properties:
+  #     FunctionName: !Ref TranscriptionFunction
+  #     Action: lambda:InvokeFunction
+  #     Principal: apigateway.amazonaws.com
+  #     SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayApi}/*/*"
+
+  AudioFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref AudioFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGatewayApi}/*/*"
+
 Outputs:
   ApiEndpoint:
     Description: API Gateway endpoint URL
     Value: !Sub "https://${ApiGatewayApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/"
+    Export:
+      Name: !Sub "${AWS::StackName}-ApiEndpoint"
+  
+  # DynamoDB Table Names
   UsersTableName:
     Description: Users DynamoDB table name
     Value: !Ref UsersTable
+    Export:
+      Name: !Sub "${AWS::StackName}-UsersTableName"
+  
+  WordsTableName:
+    Description: Words DynamoDB table name
+    Value: !Ref WordsTable
+    Export:
+      Name: !Sub "${AWS::StackName}-WordsTableName"
+  
+  TranscriptionsTableName:
+    Description: Transcriptions DynamoDB table name
+    Value: !Ref TranscriptionsTable
+    Export:
+      Name: !Sub "${AWS::StackName}-TranscriptionsTableName"
+  
+  UserProgressTableName:
+    Description: User Progress DynamoDB table name
+    Value: !Ref UserProgressTable
+    Export:
+      Name: !Sub "${AWS::StackName}-UserProgressTableName"
+  
+  # S3 Bucket
+  AudioFilesBucketName:
+    Description: S3 bucket for audio files
+    Value: !Ref AudioFilesBucket
+    Export:
+      Name: !Sub "${AWS::StackName}-AudioFilesBucketName"
+  
+  # Lambda Functions
+  UsersFunctionArn:
+    Description: Users Lambda function ARN
+    Value: !GetAtt UsersFunction.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-UsersFunctionArn"
+  
+  # TEMPORARILY COMMENTED OUT - WILL UNCOMMENT AFTER HANDLERS ARE BUILT
+  # WordsFunctionArn:
+  #   Description: Words Lambda function ARN
+  #   Value: !GetAtt WordsFunction.Arn
+  #   Export:
+  #     Name: !Sub "${AWS::StackName}-WordsFunctionArn"
+  
+  # TranscriptionFunctionArn:
+  #   Description: Transcription Lambda function ARN
+  #   Value: !GetAtt TranscriptionFunction.Arn
+  #   Export:
+  #     Name: !Sub "${AWS::StackName}-TranscriptionFunctionArn"
+  
+  # AudioFunctionArn:
+  #   Description: Audio Lambda function ARN
+  #   Value: !GetAtt AudioFunction.Arn
+  #   Export:
+  #     Name: !Sub "${AWS::StackName}-AudioFunctionArn"
+  
+  # API Gateway
   ApiGatewayId:
     Description: API Gateway ID
     Value: !Ref ApiGatewayApi
+    Export:
+      Name: !Sub "${AWS::StackName}-ApiGatewayId"
