@@ -1,0 +1,770 @@
+openapi: 3.0.3
+info:
+  title: English Learning App API
+  description: API for managing users and audio files in the English learning application
+  version: 1.2.1
+  contact:
+    name: English Learning App
+    email: support@englishlearningapp.com
+
+servers:
+  - url: https://1bvgxdmq64.execute-api.us-east-1.amazonaws.com/dev
+    description: Development server
+
+security:
+  - CognitoUserPool: []
+
+paths:
+  # Health Check (Public)
+  /health:
+    get:
+      operationId: getHealth
+      summary: Health check endpoint
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: Service health status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  # Audio Endpoints
+  /audio/upload:
+    post:
+      operationId: generateUploadUrl
+      summary: Generate presigned URL for audio upload
+      tags: [Audio]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateUploadUrlRequest'
+      responses:
+        '200':
+          description: Upload URL generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadUrlResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /audio/download:
+    post:
+      operationId: generateDownloadUrl
+      summary: Generate presigned URL for audio download
+      tags: [Audio]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateDownloadUrlRequest'
+      responses:
+        '200':
+          description: Download URL generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DownloadUrlResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - file not accessible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /audio/metadata:
+    post:
+      operationId: getAudioMetadata
+      summary: Get audio file metadata
+      tags: [Audio]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetMetadataRequest'
+      responses:
+        '200':
+          description: Metadata retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetadataResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - file not accessible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /audio/files/{audioFileKey}:
+    get:
+      operationId: getAudioFileUrl
+      summary: Get download URL for specific audio file
+      tags: [Audio]
+      parameters:
+        - name: audioFileKey
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The audio file key (URL encoded)
+      responses:
+        '200':
+          description: Download URL retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DownloadUrlResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - file not accessible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteAudioFile
+      summary: Delete audio file
+      tags: [Audio]
+      parameters:
+        - name: audioFileKey
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The audio file key (URL encoded)
+      responses:
+        '200':
+          description: Audio file deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - file not accessible
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # User Endpoints
+  /users:
+    get:
+      operationId: getAllUsers
+      summary: Get all users (admin only)
+      tags: [Users]
+      responses:
+        '200':
+          description: List of users retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createUserProfile
+      summary: Create user profile from JWT claims
+      tags: [Users]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: User profile created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: User already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/{userId}:
+    get:
+      operationId: getUserById
+      summary: Get user by ID
+      tags: [Users]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User UUID
+      responses:
+        '200':
+          description: User retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - can only access own profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      operationId: updateUser
+      summary: Update user profile
+      tags: [Users]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User UUID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - can only update own profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteUserProfile
+      summary: Delete user profile (local only)
+      tags: [Users]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User UUID
+      responses:
+        '204':
+          description: User profile deleted successfully
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - can only delete own profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/change-password:
+    post:
+      operationId: changePassword
+      summary: Change user password
+      tags: [Users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized or invalid current password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/account:
+    delete:
+      operationId: deleteUserAccount
+      summary: Delete user account (Cognito + local profile)
+      tags: [Users]
+      responses:
+        '200':
+          description: Account deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Failed to delete account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/signup:
+    post:
+      operationId: signUpUser
+      summary: Sign up new user (public endpoint)
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignUpRequest'
+      responses:
+        '201':
+          description: User signed up successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignUpResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: User already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/confirm:
+    post:
+      operationId: confirmSignUp
+      summary: Confirm user sign up (public endpoint)
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmSignUpRequest'
+      responses:
+        '200':
+          description: Email verified successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Bad request or invalid confirmation code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    CognitoUserPool:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Cognito User Pool JWT token
+
+  schemas:
+    # Common Schemas
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        message:
+          type: string
+          description: Detailed error message
+      required: [error]
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Success message
+      required: [message]
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy]
+        service:
+          type: string
+          example: english-learning-app-backend
+        version:
+          type: string
+          example: 1.2.1
+      required: [status, service, version]
+
+    # Audio Schemas
+    GenerateUploadUrlRequest:
+      type: object
+      properties:
+        fileName:
+          type: string
+          description: Name of the audio file
+          example: my-audio.mp3
+        contentType:
+          type: string
+          description: MIME type of the audio file
+          enum: [audio/mpeg, audio/wav, audio/m4a, audio/webm]
+          example: audio/mpeg
+        duration:
+          type: number
+          description: Duration in seconds (optional)
+          minimum: 0
+          example: 30
+        fileSize:
+          type: number
+          description: File size in bytes (optional)
+          minimum: 1
+          maximum: 104857600
+          example: 1048576
+      required: [fileName, contentType]
+
+    UploadUrlResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        audioFileKey:
+          type: string
+          description: Unique key for the uploaded file
+          example: audio-files/user123/audio_20231201_143022.mp3
+        uploadUrl:
+          type: string
+          format: uri
+          description: Presigned URL for uploading the file
+        expiresIn:
+          type: number
+          description: URL expiration time in seconds
+          example: 3600
+        maxFileSize:
+          type: number
+          description: Maximum allowed file size in bytes
+          example: 104857600
+        supportedFormats:
+          type: array
+          items:
+            type: string
+          description: List of supported audio formats
+          example: [audio/mpeg, audio/wav, audio/m4a, audio/webm]
+      required: [success, audioFileKey, uploadUrl, expiresIn, maxFileSize, supportedFormats]
+
+    GenerateDownloadUrlRequest:
+      type: object
+      properties:
+        audioFileKey:
+          type: string
+          description: The audio file key to download
+          example: audio-files/user123/audio_20231201_143022.mp3
+      required: [audioFileKey]
+
+    DownloadUrlResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        downloadUrl:
+          type: string
+          format: uri
+          description: Presigned URL for downloading the file
+        expiresIn:
+          type: number
+          description: URL expiration time in seconds
+          example: 3600
+      required: [success, downloadUrl, expiresIn]
+
+    GetMetadataRequest:
+      type: object
+      properties:
+        audioFileKey:
+          type: string
+          description: The audio file key to get metadata for
+          example: audio-files/user123/audio_20231201_143022.mp3
+      required: [audioFileKey]
+
+    MetadataResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        metadata:
+          type: object
+          properties:
+            contentType:
+              type: string
+              example: audio/mpeg
+            size:
+              type: number
+              example: 1048576
+            lastModified:
+              type: string
+              format: date-time
+            duration:
+              type: number
+              description: Duration in seconds
+              example: 30
+          required: [contentType, size, lastModified]
+      required: [success, metadata]
+
+    DeleteResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Audio file deleted successfully
+      required: [success, message]
+
+    # User Schemas
+    CreateUserRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          description: User email (optional, extracted from JWT if not provided)
+        name:
+          type: string
+          description: User display name (optional, extracted from JWT if not provided)
+      additionalProperties: false
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: User UUID from Cognito
+        email:
+          type: string
+          format: email
+          description: User email address
+        name:
+          type: string
+          description: User display name
+        createdAt:
+          type: string
+          format: date-time
+          description: Profile creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Profile last update timestamp
+      required: [id, email, name, createdAt, updatedAt]
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Updated display name
+        email:
+          type: string
+          format: email
+          description: Updated email address (must match Cognito)
+      additionalProperties: false
+
+    ChangePasswordRequest:
+      type: object
+      properties:
+        oldPassword:
+          type: string
+          description: Current password
+          minLength: 8
+        newPassword:
+          type: string
+          description: New password
+          minLength: 8
+      required: [oldPassword, newPassword]
+      additionalProperties: false
+
+    # Auth Schemas
+    SignUpRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          description: User email address
+        password:
+          type: string
+          description: User password
+          minLength: 8
+        name:
+          type: string
+          description: User display name (optional)
+      required: [email, password]
+      additionalProperties: false
+
+    SignUpResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: User signed up successfully. Please check your email for verification code.
+        userSub:
+          type: string
+          description: Cognito user UUID
+        codeDeliveryDetails:
+          type: object
+          properties:
+            attributeName:
+              type: string
+              example: email
+            deliveryMedium:
+              type: string
+              example: EMAIL
+            destination:
+              type: string
+              example: t***@example.com
+      required: [message, userSub]
+
+    ConfirmSignUpRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          description: User email address
+        confirmationCode:
+          type: string
+          description: Verification code sent to email
+          pattern: '^[0-9]{6}$'
+      required: [email, confirmationCode]
+      additionalProperties: false
+
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: Audio
+    description: Audio file management
+  - name: Users
+    description: User profile management
+  - name: Auth
+    description: Authentication and authorization

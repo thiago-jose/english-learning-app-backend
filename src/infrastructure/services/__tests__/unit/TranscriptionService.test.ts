@@ -1,7 +1,11 @@
 import { TranscriptionService } from '../../TranscriptionService';
 import { ITranscriptionRepository } from '../../../../domain/repositories/ITranscriptionRepository';
 import { Transcription, TranscriptionStatus } from '../../../../domain/entities/Transcription';
-import { TranscribeClient, StartTranscriptionJobCommand, GetTranscriptionJobCommand } from '@aws-sdk/client-transcribe';
+import {
+  TranscribeClient,
+  StartTranscriptionJobCommand,
+  GetTranscriptionJobCommand,
+} from '@aws-sdk/client-transcribe';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 
 jest.mock('@aws-sdk/client-transcribe');

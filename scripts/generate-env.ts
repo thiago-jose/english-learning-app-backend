@@ -8,12 +8,16 @@ async function generateEnvFile(env: string): Promise<void> {
     const cloudFormation = new CloudFormationClient({ region: 'us-east-1' });
 
     // Get stack outputs
-    const { Stacks } = await cloudFormation.send(new DescribeStacksCommand({ StackName: stackName }));
+    const { Stacks } = await cloudFormation.send(
+      new DescribeStacksCommand({ StackName: stackName })
+    );
     const stack = Stacks?.[0];
     const outputs = stack?.Outputs || [];
 
     // Extract required values
-    const apiEndpoint = outputs.find((output: any) => output.OutputKey === 'ApiEndpoint')?.OutputValue;
+    const apiEndpoint = outputs.find(
+      (output: any) => output.OutputKey === 'ApiEndpoint'
+    )?.OutputValue;
     const usersTableName = outputs.find(
       (output: any) => output.OutputKey === 'UsersTableName'
     )?.OutputValue;
@@ -37,14 +41,17 @@ async function generateEnvFile(env: string): Promise<void> {
     )?.OutputValue;
 
     if (!apiEndpoint || !usersTableName) {
-      throw new Error('Required stack outputs not found: ApiEndpoint and UsersTableName are mandatory');
+      throw new Error(
+        'Required stack outputs not found: ApiEndpoint and UsersTableName are mandatory'
+      );
     }
 
     // Use fallback values for optional outputs that might not exist yet
     const fallbackWordsTableName = wordsTableName || `${env}-words`;
     const fallbackTranscriptionsTableName = transcriptionsTableName || `${env}-transcriptions`;
     const fallbackUserProgressTableName = userProgressTableName || `${env}-user-progress`;
-    const fallbackAudioFilesBucketName = audioFilesBucketName || `${env}-english-learning-audio-files`;
+    const fallbackAudioFilesBucketName =
+      audioFilesBucketName || `${env}-english-learning-audio-files`;
 
     // Create .env file content
     const envContent = `API_ENDPOINT=${apiEndpoint}

@@ -1,4 +1,10 @@
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+  HeadObjectCommand,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 export interface UploadAudioRequest {
@@ -63,11 +69,15 @@ export class AudioStorageService {
       };
     } catch (error) {
       console.error('Error generating upload URL:', error);
-      throw new Error(`Failed to generate upload URL: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to generate upload URL: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
-  async generateDownloadUrl(request: GenerateDownloadUrlRequest): Promise<GenerateDownloadUrlResponse> {
+  async generateDownloadUrl(
+    request: GenerateDownloadUrlRequest
+  ): Promise<GenerateDownloadUrlResponse> {
     // Verify the file belongs to the user
     if (!this.isUserFile(request.audioFileKey, request.userId)) {
       throw new Error('Unauthorized: File does not belong to user');
@@ -89,7 +99,9 @@ export class AudioStorageService {
       };
     } catch (error) {
       console.error('Error generating download URL:', error);
-      throw new Error(`Failed to generate download URL: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to generate download URL: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -119,7 +131,9 @@ export class AudioStorageService {
       return { audioFileKey };
     } catch (error) {
       console.error('Error uploading audio buffer:', error);
-      throw new Error(`Failed to upload audio: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to upload audio: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -138,24 +152,38 @@ export class AudioStorageService {
       await this.s3Client.send(command);
     } catch (error) {
       console.error('Error deleting audio file:', error);
-      throw new Error(`Failed to delete audio file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to delete audio file: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
-  async getAudioFileMetadata(audioFileKey: string, userId: string): Promise<Record<string, string> | null> {
+  async getAudioFileMetadata(
+    audioFileKey: string,
+    userId: string
+  ): Promise<Record<string, string> | null> {
     // Verify the file belongs to the user
     if (!this.isUserFile(audioFileKey, userId)) {
       throw new Error('Unauthorized: File does not belong to user');
     }
 
-    const command = new GetObjectCommand({
+    const command = new HeadObjectCommand({
       Bucket: this.bucketName,
       Key: audioFileKey,
     });
 
     try {
       const response = await this.s3Client.send(command);
-      return response.Metadata || null;
+
+      // Create a flattened metadata object with all relevant information
+      const metadata: Record<string, string> = {
+        'content-type': response.ContentType || 'application/octet-stream',
+        'content-length': (response.ContentLength || 0).toString(),
+        'last-modified': response.LastModified?.toISOString() || new Date().toISOString(),
+        ...(response.Metadata || {}), // Include any custom metadata
+      };
+
+      return metadata;
     } catch (error) {
       console.error('Error getting audio file metadata:', error);
       return null;
@@ -183,11 +211,13 @@ export class AudioStorageService {
   private sanitizeFileName(fileName: string): string {
     // Remove file extension and sanitize
     const nameWithoutExt = fileName.replace(/\.[^/.]+$/, '');
-    return nameWithoutExt
-      .replace(/[^a-zA-Z0-9-_]/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '')
-      .substring(0, 50) || 'audio';
+    return (
+      nameWithoutExt
+        .replace(/[^a-zA-Z0-9-_]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '')
+        .substring(0, 50) || 'audio'
+    );
   }
 
   private isUserFile(audioFileKey: string, userId: string): boolean {

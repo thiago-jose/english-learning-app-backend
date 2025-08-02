@@ -4,7 +4,14 @@ import { DynamoDBUserRepository } from '../../../../infrastructure/repositories/
 import { UserMapper } from '../../../../infrastructure/mappers/UserMapper';
 import { User } from '../../../../domain/entities/User';
 import { getAuthenticatedUser, getUserIdWithFallback } from '../../../utils/auth';
-import { CognitoIdentityProviderClient, SignUpCommand, ConfirmSignUpCommand, DeleteUserCommand, ChangePasswordCommand, AdminDeleteUserCommand } from '@aws-sdk/client-cognito-identity-provider';
+import {
+  CognitoIdentityProviderClient,
+  SignUpCommand,
+  ConfirmSignUpCommand,
+  DeleteUserCommand,
+  ChangePasswordCommand,
+  AdminDeleteUserCommand,
+} from '@aws-sdk/client-cognito-identity-provider';
 
 const userMapper = new UserMapper();
 const userRepository = new DynamoDBUserRepository(process.env.USERS_TABLE_NAME || '', userMapper);
@@ -20,7 +27,8 @@ const CLIENT_ID = process.env.COGNITO_CLIENT_ID;
 
 const headers = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+  'Access-Control-Allow-Headers':
+    'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
   'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
   'Content-Type': 'application/json',
 };
@@ -32,16 +40,16 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       return {
         statusCode: 200,
         headers,
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           status: 'healthy',
           service: 'english-learning-app-backend',
-          version: '1.2.1'
+          version: '1.2.1',
         }),
       };
     }
 
     const path = event.pathParameters?.proxy || '';
-    
+
     switch (event.httpMethod) {
       case 'POST':
         // Route different POST operations based on path
@@ -125,10 +133,14 @@ async function signUpUser(event: APIGatewayProxyEvent): Promise<APIGatewayProxyR
           Name: 'email',
           Value: email,
         },
-        ...(name ? [{
-          Name: 'name',
-          Value: name,
-        }] : []),
+        ...(name
+          ? [
+              {
+                Name: 'name',
+                Value: name,
+              },
+            ]
+          : []),
       ],
     });
 
@@ -145,7 +157,7 @@ async function signUpUser(event: APIGatewayProxyEvent): Promise<APIGatewayProxyR
     };
   } catch (error: any) {
     console.error('Error in signUpUser:', error);
-    
+
     // Handle Cognito-specific errors
     if (error.name === 'UsernameExistsException') {
       return {
@@ -154,7 +166,7 @@ async function signUpUser(event: APIGatewayProxyEvent): Promise<APIGatewayProxyR
         body: JSON.stringify({ message: 'User with this email already exists' }),
       };
     }
-    
+
     if (error.name === 'InvalidPasswordException') {
       return {
         statusCode: 400,
@@ -238,17 +250,19 @@ async function changePassword(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Extract authenticated user information with fallback
     let userId: string;
     let authenticatedUser: any = null;
-    
+
     try {
       authenticatedUser = getAuthenticatedUser(event);
       userId = authenticatedUser.userId;
-      console.log(`Authenticated user: ${authenticatedUser.name} (${authenticatedUser.email}) via ${authenticatedUser.provider}`);
+      console.log(
+        `Authenticated user: ${authenticatedUser.name} (${authenticatedUser.email}) via ${authenticatedUser.provider}`
+      );
     } catch (authError) {
       // Temporary fallback during deployment transition
       userId = getUserIdWithFallback(event);
       console.warn('Using fallback user ID extraction for password change:', userId);
     }
-    
+
     const { oldPassword, newPassword } = JSON.parse(event.body || '{}');
 
     if (!oldPassword || !newPassword) {
@@ -262,7 +276,7 @@ async function changePassword(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Note: This requires the access token, not the ID token
     // The access token should be provided in the Authorization header
     const accessToken = event.headers.Authorization?.replace('Bearer ', '');
-    
+
     if (!accessToken) {
       return {
         statusCode: 401,
@@ -318,20 +332,22 @@ async function deleteAccount(event: APIGatewayProxyEvent): Promise<APIGatewayPro
     // Extract authenticated user information with fallback
     let userId: string;
     let authenticatedUser: any = null;
-    
+
     try {
       authenticatedUser = getAuthenticatedUser(event);
       userId = authenticatedUser.userId;
-      console.log(`Authenticated user: ${authenticatedUser.name} (${authenticatedUser.email}) via ${authenticatedUser.provider}`);
+      console.log(
+        `Authenticated user: ${authenticatedUser.name} (${authenticatedUser.email}) via ${authenticatedUser.provider}`
+      );
     } catch (authError) {
       // Temporary fallback during deployment transition
       userId = getUserIdWithFallback(event);
       console.warn('Using fallback user ID extraction for account deletion:', userId);
     }
-    
+
     // Delete from Cognito User Pool
     const accessToken = event.headers.Authorization?.replace('Bearer ', '');
-    
+
     if (!accessToken) {
       return {
         statusCode: 401,
@@ -375,11 +391,13 @@ async function createUserProfile(event: APIGatewayProxyEvent): Promise<APIGatewa
     // Falls back to test headers for integration tests during transition
     let userId: string;
     let authenticatedUser: any = null;
-    
+
     try {
       authenticatedUser = getAuthenticatedUser(event);
       userId = authenticatedUser.userId;
-      console.log(`Authenticated user: ${authenticatedUser.name} (${authenticatedUser.email}) via ${authenticatedUser.provider}`);
+      console.log(
+        `Authenticated user: ${authenticatedUser.name} (${authenticatedUser.email}) via ${authenticatedUser.provider}`
+      );
     } catch (authError) {
       // Temporary fallback during deployment transition
       userId = getUserIdWithFallback(event);
@@ -390,22 +408,24 @@ async function createUserProfile(event: APIGatewayProxyEvent): Promise<APIGatewa
         userId: userId,
         email: fallbackData.email || `${userId}@test.com`,
         name: fallbackData.name || 'Test User',
-        provider: 'TEST_FALLBACK'
+        provider: 'TEST_FALLBACK',
       };
     }
-    
+
     // Use Cognito claims as the primary source of user data
     const userData = {
-      id: authenticatedUser.userId,  // Use Cognito user UUID
+      id: authenticatedUser.userId, // Use Cognito user UUID
       email: authenticatedUser.email,
       name: authenticatedUser.name || authenticatedUser.email, // Fallback to email if name not available
       // Add additional fields if available
       ...(authenticatedUser.picture && { picture: authenticatedUser.picture }),
       // Allow body to override certain fields if needed
-      ...JSON.parse(event.body || '{}')
+      ...JSON.parse(event.body || '{}'),
     };
 
-    console.log(`Creating user from Cognito claims: ${userData.email} (${authenticatedUser.provider})`);
+    console.log(
+      `Creating user from Cognito claims: ${userData.email} (${authenticatedUser.provider})`
+    );
 
     const user = await createUserUseCase.execute(userData);
 
@@ -440,17 +460,19 @@ async function getUserById(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
     // Falls back to test headers for integration tests during transition
     let userId: string;
     let authenticatedUser: any = null;
-    
+
     try {
       authenticatedUser = getAuthenticatedUser(event);
       userId = authenticatedUser.userId;
-      console.log(`Authenticated user: ${authenticatedUser.name} (${authenticatedUser.email}) via ${authenticatedUser.provider}`);
+      console.log(
+        `Authenticated user: ${authenticatedUser.name} (${authenticatedUser.email}) via ${authenticatedUser.provider}`
+      );
     } catch (authError) {
       // Temporary fallback during deployment transition
       userId = getUserIdWithFallback(event);
       console.warn('Using fallback user ID extraction:', userId);
     }
-    
+
     // Users can only access their own profile (for privacy/security)
     if (userId !== requestedUserId) {
       return {
@@ -491,7 +513,7 @@ async function getAllUsers(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
     // Extract authenticated user information with fallback
     let userId: string;
     let authenticatedUser: any = null;
-    
+
     try {
       authenticatedUser = getAuthenticatedUser(event);
       userId = authenticatedUser.userId;
@@ -501,7 +523,7 @@ async function getAllUsers(event: APIGatewayProxyEvent): Promise<APIGatewayProxy
       userId = getUserIdWithFallback(event);
       console.warn('Using fallback user ID extraction for get all users:', userId);
     }
-    
+
     const users = await userRepository.findAll();
     return {
       statusCode: 200,
@@ -534,17 +556,19 @@ async function updateUser(event: APIGatewayProxyEvent): Promise<APIGatewayProxyR
     // Extract authenticated user information with fallback
     let userId: string;
     let authenticatedUser: any = null;
-    
+
     try {
       authenticatedUser = getAuthenticatedUser(event);
       userId = authenticatedUser.userId;
-      console.log(`Authenticated user: ${authenticatedUser.name} (${authenticatedUser.email}) via ${authenticatedUser.provider}`);
+      console.log(
+        `Authenticated user: ${authenticatedUser.name} (${authenticatedUser.email}) via ${authenticatedUser.provider}`
+      );
     } catch (authError) {
       // Temporary fallback during deployment transition
       userId = getUserIdWithFallback(event);
       console.warn('Using fallback user ID extraction for update user:', userId);
     }
-    
+
     if (userId !== requestedUserId) {
       return {
         statusCode: 403,
@@ -599,17 +623,19 @@ async function deleteUser(event: APIGatewayProxyEvent): Promise<APIGatewayProxyR
     // Extract authenticated user information with fallback
     let userId: string;
     let authenticatedUser: any = null;
-    
+
     try {
       authenticatedUser = getAuthenticatedUser(event);
       userId = authenticatedUser.userId;
-      console.log(`Authenticated user: ${authenticatedUser.name} (${authenticatedUser.email}) via ${authenticatedUser.provider}`);
+      console.log(
+        `Authenticated user: ${authenticatedUser.name} (${authenticatedUser.email}) via ${authenticatedUser.provider}`
+      );
     } catch (authError) {
       // Temporary fallback during deployment transition
       userId = getUserIdWithFallback(event);
       console.warn('Using fallback user ID extraction for delete user:', userId);
     }
-    
+
     if (userId !== requestedUserId) {
       return {
         statusCode: 403,

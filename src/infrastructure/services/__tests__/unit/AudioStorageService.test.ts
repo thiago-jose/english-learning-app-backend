@@ -1,5 +1,10 @@
 import { AudioStorageService } from '../../AudioStorageService';
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 jest.mock('@aws-sdk/client-s3');
@@ -42,11 +47,9 @@ describe('AudioStorageService', () => {
         expiresIn: 3600,
       });
 
-      expect(mockGetSignedUrl).toHaveBeenCalledWith(
-        mockS3Client,
-        expect.any(PutObjectCommand),
-        { expiresIn: 3600 }
-      );
+      expect(mockGetSignedUrl).toHaveBeenCalledWith(mockS3Client, expect.any(PutObjectCommand), {
+        expiresIn: 3600,
+      });
     });
 
     it('should handle different content types', async () => {
@@ -70,7 +73,9 @@ describe('AudioStorageService', () => {
         const result = await audioStorageService.generateUploadUrl(request);
 
         expect(result.audioFileKey).toMatch(
-          new RegExp(`audio-files/user123/\\d+-test-audio\\${testCase.expectedExtension.replace('.', '\\.')}$`)
+          new RegExp(
+            `audio-files/user123/\\d+-test-audio\\${testCase.expectedExtension.replace('.', '\\.')}$`
+          )
         );
       }
     });
@@ -87,7 +92,9 @@ describe('AudioStorageService', () => {
 
       const result = await audioStorageService.generateUploadUrl(request);
 
-      expect(result.audioFileKey).toMatch(/audio-files\/user123\/\d+-test-audio-with-spaces---special-chars-\.mp3$/);
+      expect(result.audioFileKey).toMatch(
+        /audio-files\/user123\/\d+-test-audio-with-spaces---special-chars-\.mp3$/
+      );
     });
 
     it('should handle S3 errors', async () => {
@@ -122,11 +129,9 @@ describe('AudioStorageService', () => {
         expiresIn: 3600,
       });
 
-      expect(mockGetSignedUrl).toHaveBeenCalledWith(
-        mockS3Client,
-        expect.any(GetObjectCommand),
-        { expiresIn: 3600 }
-      );
+      expect(mockGetSignedUrl).toHaveBeenCalledWith(mockS3Client, expect.any(GetObjectCommand), {
+        expiresIn: 3600,
+      });
     });
 
     it('should reject unauthorized access to other users files', async () => {

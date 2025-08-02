@@ -1,6 +1,13 @@
 import axios from 'axios';
 import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
-import { CognitoIdentityProviderClient, AdminCreateUserCommand, AdminSetUserPasswordCommand, AdminDeleteUserCommand, AdminInitiateAuthCommand, AuthFlowType } from '@aws-sdk/client-cognito-identity-provider';
+import {
+  CognitoIdentityProviderClient,
+  AdminCreateUserCommand,
+  AdminSetUserPasswordCommand,
+  AdminDeleteUserCommand,
+  AdminInitiateAuthCommand,
+  AuthFlowType,
+} from '@aws-sdk/client-cognito-identity-provider';
 import * as dotenv from 'dotenv';
 
 // Load environment variables from .env file
@@ -76,7 +83,10 @@ class AudioTestCognitoHelper {
     return email;
   }
 
-  async signInUser(email: string, password: string): Promise<{
+  async signInUser(
+    email: string,
+    password: string
+  ): Promise<{
     idToken: string;
     accessToken: string;
     refreshToken: string;
@@ -93,7 +103,7 @@ class AudioTestCognitoHelper {
       });
 
       const authResponse = await this.cognitoClient.send(authCommand);
-      
+
       if (!authResponse.AuthenticationResult) {
         throw new Error('Authentication failed');
       }
@@ -105,7 +115,9 @@ class AudioTestCognitoHelper {
       };
     } catch (error: any) {
       if (error.name === 'AccessDeniedException') {
-        throw new Error('AdminInitiateAuth requires additional IAM permissions: cognito-idp:AdminInitiateAuth');
+        throw new Error(
+          'AdminInitiateAuth requires additional IAM permissions: cognito-idp:AdminInitiateAuth'
+        );
       }
       throw error;
     }
@@ -126,10 +138,11 @@ class AudioTestCognitoHelper {
 
 // Real integration tests - testing the full API Gateway → Lambda workflow
 describe('Audio Controller API Integration Tests', () => {
-  const apiEndpoint = process.env.API_ENDPOINT || 'https://qc72vo0ce9.execute-api.us-east-1.amazonaws.com/dev/';
+  const apiEndpoint =
+    process.env.API_ENDPOINT || 'https://qc72vo0ce9.execute-api.us-east-1.amazonaws.com/dev/';
   const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
   const bucketName = process.env.STORAGE_BUCKET_NAME || 'dev-english-learning-audio-files';
-  
+
   // Cognito authentication for JWT tests
   const cognitoHelper = new AudioTestCognitoHelper();
   let jwtTestUser: {
@@ -140,7 +153,7 @@ describe('Audio Controller API Integration Tests', () => {
       refreshToken: string;
     };
   } | null = null;
-  
+
   beforeAll(async () => {
     // Set up JWT test user if Cognito configuration is available
     if (process.env.COGNITO_USER_POOL_ID && process.env.COGNITO_CLIENT_ID) {
@@ -148,12 +161,12 @@ describe('Audio Controller API Integration Tests', () => {
         const testUserEmail = `audio-test-${Date.now()}@example.com`;
         await cognitoHelper.createTestUser(testUserEmail, 'TestPass123!', 'Audio Test User');
         const tokens = await cognitoHelper.signInUser(testUserEmail, 'TestPass123!');
-        
+
         jwtTestUser = {
           email: testUserEmail,
-          tokens
+          tokens,
         };
-        
+
         console.log('✅ JWT test user created for audio integration tests');
       } catch (error) {
         console.warn('⚠️  Failed to create JWT test user, falling back to header auth:', error);
@@ -192,10 +205,12 @@ describe('Audio Controller API Integration Tests', () => {
     // Clean up any uploaded files
     for (const audioFileKey of uploadedFiles) {
       try {
-        await s3Client.send(new DeleteObjectCommand({
-          Bucket: bucketName,
-          Key: audioFileKey,
-        }));
+        await s3Client.send(
+          new DeleteObjectCommand({
+            Bucket: bucketName,
+            Key: audioFileKey,
+          })
+        );
         console.log(`Cleaned up test file: ${audioFileKey}`);
       } catch (error) {
         console.warn(`Failed to clean up test file ${audioFileKey}:`, error);
@@ -204,7 +219,12 @@ describe('Audio Controller API Integration Tests', () => {
   });
 
   // Helper function to make authenticated requests with JWT token or fallback
-  const makeAuthenticatedRequest = async (method: string, path: string, data?: any, jwtToken?: string) => {
+  const makeAuthenticatedRequest = async (
+    method: string,
+    path: string,
+    data?: any,
+    jwtToken?: string
+  ) => {
     const url = `${apiEndpoint}${path}`;
     const headers: any = {
       'Content-Type': 'application/json',
@@ -310,7 +330,7 @@ describe('Audio Controller API Integration Tests', () => {
 
       const uploadResponse = await makeAuthenticatedRequest('POST', 'audio', uploadRequestData);
       expect(uploadResponse.status).toBe(200);
-      
+
       uploadedFiles.push(asUpload(uploadResponse.data).audioFileKey);
 
       // Now test download URL generation
@@ -325,7 +345,9 @@ describe('Audio Controller API Integration Tests', () => {
       expect(asDownload(downloadResponse.data).success).toBe(true);
       expect(asDownload(downloadResponse.data).downloadUrl).toContain(bucketName);
       expect(asDownload(downloadResponse.data).downloadUrl).toContain('s3');
-      expect(asDownload(downloadResponse.data).downloadUrl).toContain('X-Amz-Algorithm=AWS4-HMAC-SHA256');
+      expect(asDownload(downloadResponse.data).downloadUrl).toContain(
+        'X-Amz-Algorithm=AWS4-HMAC-SHA256'
+      );
       expect(asDownload(downloadResponse.data).expiresIn).toBe(3600);
     }, 15000);
 
@@ -339,7 +361,7 @@ describe('Audio Controller API Integration Tests', () => {
 
       const uploadResponse = await makeAuthenticatedRequest('POST', 'audio', uploadRequestData);
       expect(uploadResponse.status).toBe(200);
-      
+
       uploadedFiles.push(asUpload(uploadResponse.data).audioFileKey);
 
       // Since we can't create a second JWT user easily, we expect 401 instead of 403
@@ -377,7 +399,7 @@ describe('Audio Controller API Integration Tests', () => {
 
       const uploadResponse = await makeAuthenticatedRequest('POST', 'audio', uploadRequestData);
       expect(uploadResponse.status).toBe(200);
-      
+
       uploadedFiles.push(asUpload(uploadResponse.data).audioFileKey);
 
       // Now test GET with path parameter
@@ -385,7 +407,11 @@ describe('Audio Controller API Integration Tests', () => {
       console.log('Testing GET with audioFileKey:', audioFileKey);
       const encodedAudioFileKey = encodeURIComponent(audioFileKey);
       console.log('Encoded audioFileKey:', encodedAudioFileKey);
-      const getResponse = await makeAuthenticatedRequest('GET', `audio/${encodedAudioFileKey}`, null);
+      const getResponse = await makeAuthenticatedRequest(
+        'GET',
+        `audio/${encodedAudioFileKey}`,
+        null
+      );
 
       expect(getResponse.status).toBe(200);
       expect(asDownload(getResponse.data).success).toBe(true);
@@ -446,20 +472,32 @@ describe('Audio Controller API Integration Tests', () => {
       const fileDownloadResponse = await axios.get(downloadData.downloadUrl);
       expect(fileDownloadResponse.status).toBe(200);
       expect(fileDownloadResponse.data).toBeDefined();
-      const dataSize = typeof fileDownloadResponse.data === 'string' ? fileDownloadResponse.data.length : 
-                      fileDownloadResponse.data instanceof Buffer ? fileDownloadResponse.data.length : 'unknown';
+      const dataSize =
+        typeof fileDownloadResponse.data === 'string'
+          ? fileDownloadResponse.data.length
+          : fileDownloadResponse.data instanceof Buffer
+            ? fileDownloadResponse.data.length
+            : 'unknown';
       console.log(`✅ Successfully downloaded file from S3, size: ${dataSize}`);
 
       // Step 5: Test GET endpoint with path parameter
       const encodedAudioFileKey = encodeURIComponent(uploadData.audioFileKey);
-      const getResponse = await makeAuthenticatedRequest('GET', `audio/${encodedAudioFileKey}`, null);
+      const getResponse = await makeAuthenticatedRequest(
+        'GET',
+        `audio/${encodedAudioFileKey}`,
+        null
+      );
       const getData = asDownload(getResponse.data);
       expect(getResponse.status).toBe(200);
       expect(getData.success).toBe(true);
       expect(getData.downloadUrl).toContain('s3');
 
       // Step 6: Delete the file via API Gateway
-      const deleteResponse = await makeAuthenticatedRequest('DELETE', `audio/${encodedAudioFileKey}`, null);
+      const deleteResponse = await makeAuthenticatedRequest(
+        'DELETE',
+        `audio/${encodedAudioFileKey}`,
+        null
+      );
       const deleteData = asDelete(deleteResponse.data);
       expect(deleteResponse.status).toBe(200);
       expect(deleteData.success).toBe(true);
@@ -494,8 +532,12 @@ describe('Audio Controller API Integration Tests', () => {
       // Try to delete the file that was never actually uploaded to S3
       // S3 delete operations are idempotent - they succeed even if the file doesn't exist
       const encodedAudioFileKey = encodeURIComponent(uploadData.audioFileKey);
-      
-      const deleteResponse = await makeAuthenticatedRequest('DELETE', `audio/${encodedAudioFileKey}`, null);
+
+      const deleteResponse = await makeAuthenticatedRequest(
+        'DELETE',
+        `audio/${encodedAudioFileKey}`,
+        null
+      );
       const deleteData = asDelete(deleteResponse.data);
       expect(deleteResponse.status).toBe(200);
       expect(deleteData.success).toBe(true);
@@ -584,7 +626,9 @@ describe('Audio Controller API Integration Tests', () => {
   describe('JWT Authentication Tests', () => {
     beforeEach(() => {
       if (!jwtTestUser) {
-        console.warn('⚠️  Skipping JWT tests: JWT test user not available - Cognito configuration required');
+        console.warn(
+          '⚠️  Skipping JWT tests: JWT test user not available - Cognito configuration required'
+        );
       }
     });
 
@@ -593,7 +637,7 @@ describe('Audio Controller API Integration Tests', () => {
         console.warn('⚠️  Skipping test: JWT test user not available');
         return;
       }
-      
+
       const requestData = {
         action: 'generateUploadUrl',
         fileName: 'jwt-authenticated-test.mp3',
@@ -602,7 +646,12 @@ describe('Audio Controller API Integration Tests', () => {
         fileSize: 1024 * 1024,
       };
 
-      const response = await makeAuthenticatedRequest('POST', 'audio', requestData, jwtTestUser!.tokens.idToken);
+      const response = await makeAuthenticatedRequest(
+        'POST',
+        'audio',
+        requestData,
+        jwtTestUser!.tokens.idToken
+      );
       const data = response.data as UploadUrlResponse;
 
       expect(response.status).toBe(200);
@@ -610,10 +659,10 @@ describe('Audio Controller API Integration Tests', () => {
       expect(data.audioFileKey).toBeDefined();
       expect(data.uploadUrl).toContain(bucketName);
       expect(data.uploadUrl).toContain('s3');
-      
+
       // Audio file key should contain proper S3 path structure
       expect(data.audioFileKey).toContain('audio-files/');
-      
+
       uploadedFiles.push(data.audioFileKey);
     });
 
@@ -622,7 +671,7 @@ describe('Audio Controller API Integration Tests', () => {
         console.warn('⚠️  Skipping test: JWT test user not available');
         return;
       }
-      
+
       // Step 1: Generate upload URL with JWT
       const uploadRequestData = {
         action: 'generateUploadUrl',
@@ -631,7 +680,12 @@ describe('Audio Controller API Integration Tests', () => {
         fileSize: 2048,
       };
 
-      const uploadResponse = await makeAuthenticatedRequest('POST', 'audio', uploadRequestData, jwtTestUser!.tokens.idToken);
+      const uploadResponse = await makeAuthenticatedRequest(
+        'POST',
+        'audio',
+        uploadRequestData,
+        jwtTestUser!.tokens.idToken
+      );
       const uploadData = asUpload(uploadResponse.data);
       expect(uploadResponse.status).toBe(200);
       expect(uploadData.success).toBe(true);
@@ -639,7 +693,7 @@ describe('Audio Controller API Integration Tests', () => {
       // Step 2: Upload file to S3
       const testAudioContent = Buffer.alloc(2048, 'JWT authenticated test file');
       const s3UploadResponse = await axios.put(uploadData.uploadUrl, testAudioContent, {
-        headers: { 'Content-Type': 'audio/mpeg' }
+        headers: { 'Content-Type': 'audio/mpeg' },
       });
       expect(s3UploadResponse.status).toBe(200);
 
@@ -648,7 +702,12 @@ describe('Audio Controller API Integration Tests', () => {
         action: 'generateDownloadUrl',
         audioFileKey: uploadData.audioFileKey,
       };
-      const downloadResponse = await makeAuthenticatedRequest('POST', 'audio', downloadRequestData, jwtTestUser!.tokens.idToken);
+      const downloadResponse = await makeAuthenticatedRequest(
+        'POST',
+        'audio',
+        downloadRequestData,
+        jwtTestUser!.tokens.idToken
+      );
       const downloadData = asDownload(downloadResponse.data);
       expect(downloadResponse.status).toBe(200);
       expect(downloadData.success).toBe(true);
@@ -660,13 +719,23 @@ describe('Audio Controller API Integration Tests', () => {
 
       // Step 5: Use GET endpoint with JWT
       const encodedAudioFileKey = encodeURIComponent(uploadData.audioFileKey);
-      const getResponse = await makeAuthenticatedRequest('GET', `audio/${encodedAudioFileKey}`, null, jwtTestUser!.tokens.idToken);
+      const getResponse = await makeAuthenticatedRequest(
+        'GET',
+        `audio/${encodedAudioFileKey}`,
+        null,
+        jwtTestUser!.tokens.idToken
+      );
       const getData = asDownload(getResponse.data);
       expect(getResponse.status).toBe(200);
       expect(getData.success).toBe(true);
 
       // Step 6: Delete file with JWT
-      const deleteResponse = await makeAuthenticatedRequest('DELETE', `audio/${encodedAudioFileKey}`, null, jwtTestUser!.tokens.idToken);
+      const deleteResponse = await makeAuthenticatedRequest(
+        'DELETE',
+        `audio/${encodedAudioFileKey}`,
+        null,
+        jwtTestUser!.tokens.idToken
+      );
       const deleteData = asDelete(deleteResponse.data);
       expect(deleteResponse.status).toBe(200);
       expect(deleteData.success).toBe(true);
@@ -680,17 +749,21 @@ describe('Audio Controller API Integration Tests', () => {
         console.warn('⚠️  Skipping test: JWT test user not available');
         return;
       }
-      
+
       try {
         // Make request without any authentication
         const url = `${apiEndpoint}audio`;
         const headers = { 'Content-Type': 'application/json' };
-        
-        await axios.post(url, {
-          action: 'generateUploadUrl',
-          fileName: 'should-fail.mp3',
-          contentType: 'audio/mpeg'
-        }, { headers });
+
+        await axios.post(
+          url,
+          {
+            action: 'generateUploadUrl',
+            fileName: 'should-fail.mp3',
+            contentType: 'audio/mpeg',
+          },
+          { headers }
+        );
 
         fail('Expected request to fail without authentication');
       } catch (error: any) {
@@ -704,7 +777,7 @@ describe('Audio Controller API Integration Tests', () => {
         console.warn('⚠️  Skipping test: JWT test user not available');
         return;
       }
-      
+
       // This test would require a second JWT user to fully test isolation
       // For now, we verify that file keys contain the proper user identifier
       const requestData = {
@@ -713,16 +786,21 @@ describe('Audio Controller API Integration Tests', () => {
         contentType: 'audio/mpeg',
       };
 
-      const response = await makeAuthenticatedRequest('POST', 'audio', requestData, jwtTestUser!.tokens.idToken);
+      const response = await makeAuthenticatedRequest(
+        'POST',
+        'audio',
+        requestData,
+        jwtTestUser!.tokens.idToken
+      );
       const data = asUpload(response.data);
 
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
-      
+
       // File key should be properly scoped to the authenticated user
       expect(data.audioFileKey).toBeDefined();
       expect(data.audioFileKey).toContain('audio-files/');
-      
+
       uploadedFiles.push(data.audioFileKey);
     });
   });
@@ -733,5 +811,5 @@ describe('Audio Controller API Integration Tests', () => {
 // To run with JWT authentication:
 // 1. Ensure COGNITO_USER_POOL_ID and COGNITO_CLIENT_ID are set in environment
 // 2. Run: npm run generate-env:dev && npm run test:integ:dev
-// 
+//
 // Legacy fallback tests will continue to work during the authentication transition.

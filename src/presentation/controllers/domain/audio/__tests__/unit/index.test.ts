@@ -21,19 +21,21 @@ jest.mock('../../../../../../infrastructure/services/AudioStorageService', () =>
         duration: 120,
       }),
       deleteAudioFile: jest.fn().mockResolvedValue(undefined),
-      getSupportedContentTypes: jest.fn().mockReturnValue([
-        'audio/mpeg',
-        'audio/mp3',
-        'audio/mp4',
-        'audio/m4a',
-        'audio/wav',
-        'audio/wave',
-        'audio/x-wav',
-        'audio/webm',
-        'audio/ogg',
-        'audio/flac',
-        'audio/aac',
-      ]),
+      getSupportedContentTypes: jest
+        .fn()
+        .mockReturnValue([
+          'audio/mpeg',
+          'audio/mp3',
+          'audio/mp4',
+          'audio/m4a',
+          'audio/wav',
+          'audio/wave',
+          'audio/x-wav',
+          'audio/webm',
+          'audio/ogg',
+          'audio/flac',
+          'audio/aac',
+        ]),
       getMaxFileSizeBytes: jest.fn().mockReturnValue(100 * 1024 * 1024), // 100MB
       getMaxDurationSeconds: jest.fn().mockReturnValue(600), // 10 minutes
     })),
@@ -82,7 +84,11 @@ describe('Audio Controller Unit Tests', () => {
         } as any,
       };
 
-      const result = await handler(event as APIGatewayProxyEvent, mockContext, jest.fn()) as APIGatewayProxyResult;
+      const result = (await handler(
+        event as APIGatewayProxyEvent,
+        mockContext,
+        jest.fn()
+      )) as APIGatewayProxyResult;
 
       expect(result.statusCode).toBe(200);
       const body = JSON.parse(result.body);
@@ -110,7 +116,11 @@ describe('Audio Controller Unit Tests', () => {
         } as any,
       };
 
-      const result = await handler(event as APIGatewayProxyEvent, mockContext, jest.fn()) as APIGatewayProxyResult;
+      const result = (await handler(
+        event as APIGatewayProxyEvent,
+        mockContext,
+        jest.fn()
+      )) as APIGatewayProxyResult;
 
       expect(result.statusCode).toBe(400);
       const body = JSON.parse(result.body);
@@ -134,7 +144,11 @@ describe('Audio Controller Unit Tests', () => {
         } as any,
       };
 
-      const result = await handler(event as APIGatewayProxyEvent, mockContext, jest.fn()) as APIGatewayProxyResult;
+      const result = (await handler(
+        event as APIGatewayProxyEvent,
+        mockContext,
+        jest.fn()
+      )) as APIGatewayProxyResult;
 
       expect(result.statusCode).toBe(400);
       const body = JSON.parse(result.body);
@@ -159,7 +173,11 @@ describe('Audio Controller Unit Tests', () => {
         } as any,
       };
 
-      const result = await handler(event as APIGatewayProxyEvent, mockContext, jest.fn()) as APIGatewayProxyResult;
+      const result = (await handler(
+        event as APIGatewayProxyEvent,
+        mockContext,
+        jest.fn()
+      )) as APIGatewayProxyResult;
 
       expect(result.statusCode).toBe(200);
       const body = JSON.parse(result.body);
@@ -184,7 +202,11 @@ describe('Audio Controller Unit Tests', () => {
         } as any,
       };
 
-      const result = await handler(event as APIGatewayProxyEvent, mockContext, jest.fn()) as APIGatewayProxyResult;
+      const result = (await handler(
+        event as APIGatewayProxyEvent,
+        mockContext,
+        jest.fn()
+      )) as APIGatewayProxyResult;
 
       expect(result.statusCode).toBe(400);
       const body = JSON.parse(result.body);
@@ -209,7 +231,11 @@ describe('Audio Controller Unit Tests', () => {
         } as any,
       };
 
-      const result = await handler(event as APIGatewayProxyEvent, mockContext, jest.fn()) as APIGatewayProxyResult;
+      const result = (await handler(
+        event as APIGatewayProxyEvent,
+        mockContext,
+        jest.fn()
+      )) as APIGatewayProxyResult;
 
       expect(result.statusCode).toBe(200);
       const body = JSON.parse(result.body);
@@ -234,7 +260,11 @@ describe('Audio Controller Unit Tests', () => {
         } as any,
       };
 
-      const result = await handler(event as APIGatewayProxyEvent, mockContext, jest.fn()) as APIGatewayProxyResult;
+      const result = (await handler(
+        event as APIGatewayProxyEvent,
+        mockContext,
+        jest.fn()
+      )) as APIGatewayProxyResult;
 
       expect(result.statusCode).toBe(200);
       const body = JSON.parse(result.body);
@@ -255,7 +285,11 @@ describe('Audio Controller Unit Tests', () => {
         } as any,
       };
 
-      const result = await handler(event as APIGatewayProxyEvent, mockContext, jest.fn()) as APIGatewayProxyResult;
+      const result = (await handler(
+        event as APIGatewayProxyEvent,
+        mockContext,
+        jest.fn()
+      )) as APIGatewayProxyResult;
 
       expect(result.statusCode).toBe(400);
       const body = JSON.parse(result.body);
@@ -279,7 +313,11 @@ describe('Audio Controller Unit Tests', () => {
         } as any,
       };
 
-      const result = await handler(event as APIGatewayProxyEvent, mockContext, jest.fn()) as APIGatewayProxyResult;
+      const result = (await handler(
+        event as APIGatewayProxyEvent,
+        mockContext,
+        jest.fn()
+      )) as APIGatewayProxyResult;
 
       expect(result.statusCode).toBe(200);
       const body = JSON.parse(result.body);
@@ -306,7 +344,11 @@ describe('Audio Controller Unit Tests', () => {
         } as any,
       };
 
-      const result = await handler(event as APIGatewayProxyEvent, mockContext, jest.fn()) as APIGatewayProxyResult;
+      const result = (await handler(
+        event as APIGatewayProxyEvent,
+        mockContext,
+        jest.fn()
+      )) as APIGatewayProxyResult;
 
       expect(result.statusCode).toBe(400);
       const body = JSON.parse(result.body);
@@ -330,7 +372,11 @@ describe('Audio Controller Unit Tests', () => {
         } as any,
       };
 
-      const result = await handler(event as APIGatewayProxyEvent, mockContext, jest.fn()) as APIGatewayProxyResult;
+      const result = (await handler(
+        event as APIGatewayProxyEvent,
+        mockContext,
+        jest.fn()
+      )) as APIGatewayProxyResult;
 
       expect(result.statusCode).toBe(400);
       const body = JSON.parse(result.body);
@@ -350,7 +396,11 @@ describe('Audio Controller Unit Tests', () => {
         } as any,
       };
 
-      const result = await handler(event as APIGatewayProxyEvent, mockContext, jest.fn()) as APIGatewayProxyResult;
+      const result = (await handler(
+        event as APIGatewayProxyEvent,
+        mockContext,
+        jest.fn()
+      )) as APIGatewayProxyResult;
 
       expect(result.statusCode).toBe(500);
       const body = JSON.parse(result.body);
@@ -369,7 +419,11 @@ describe('Audio Controller Unit Tests', () => {
         } as any,
       };
 
-      const result = await handler(event as APIGatewayProxyEvent, mockContext, jest.fn()) as APIGatewayProxyResult;
+      const result = (await handler(
+        event as APIGatewayProxyEvent,
+        mockContext,
+        jest.fn()
+      )) as APIGatewayProxyResult;
 
       expect(result.statusCode).toBe(405);
       const body = JSON.parse(result.body);
@@ -383,7 +437,11 @@ describe('Audio Controller Unit Tests', () => {
         httpMethod: 'OPTIONS',
       };
 
-      const result = await handler(event as APIGatewayProxyEvent, mockContext, jest.fn()) as APIGatewayProxyResult;
+      const result = (await handler(
+        event as APIGatewayProxyEvent,
+        mockContext,
+        jest.fn()
+      )) as APIGatewayProxyResult;
 
       expect(result.statusCode).toBe(200);
       expect(result.headers).toHaveProperty('Access-Control-Allow-Origin', '*');

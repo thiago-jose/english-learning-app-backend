@@ -1,17 +1,24 @@
 /**
  * User Lifecycle Integration Tests
- * 
+ *
  * These tests require additional IAM permissions for the test user:
  * - cognito-idp:AdminCreateUser
- * - cognito-idp:AdminSetUserPassword  
+ * - cognito-idp:AdminSetUserPassword
  * - cognito-idp:AdminDeleteUser
  * - cognito-idp:AdminInitiateAuth
- * 
+ *
  * Tests will be skipped if these permissions are not available.
  * To run full integration tests, add these policies to your IAM user/role.
  */
 import axios from 'axios';
-import { CognitoIdentityProviderClient, AdminCreateUserCommand, AdminSetUserPasswordCommand, AdminDeleteUserCommand, AdminInitiateAuthCommand, AuthFlowType } from '@aws-sdk/client-cognito-identity-provider';
+import {
+  CognitoIdentityProviderClient,
+  AdminCreateUserCommand,
+  AdminSetUserPasswordCommand,
+  AdminDeleteUserCommand,
+  AdminInitiateAuthCommand,
+  AuthFlowType,
+} from '@aws-sdk/client-cognito-identity-provider';
 import * as dotenv from 'dotenv';
 
 // Load environment variables
@@ -93,7 +100,10 @@ class CognitoTestHelper {
   }
 
   // Sign in and get JWT tokens using Admin flow (requires admin permissions)
-  async signInUser(email: string, password: string): Promise<{
+  async signInUser(
+    email: string,
+    password: string
+  ): Promise<{
     idToken: string;
     accessToken: string;
     refreshToken: string;
@@ -110,7 +120,7 @@ class CognitoTestHelper {
       });
 
       const authResponse = await this.cognitoClient.send(authCommand);
-      
+
       if (!authResponse.AuthenticationResult) {
         throw new Error('Authentication failed');
       }
@@ -122,7 +132,9 @@ class CognitoTestHelper {
       };
     } catch (error: any) {
       if (error.name === 'AccessDeniedException') {
-        throw new Error('AdminInitiateAuth requires additional IAM permissions: cognito-idp:AdminInitiateAuth');
+        throw new Error(
+          'AdminInitiateAuth requires additional IAM permissions: cognito-idp:AdminInitiateAuth'
+        );
       }
       throw error;
     }
@@ -148,7 +160,8 @@ class APITestHelper {
   private apiEndpoint: string;
 
   constructor() {
-    this.apiEndpoint = process.env.API_ENDPOINT || 'https://1bvgxdmq64.execute-api.us-east-1.amazonaws.com/dev/';
+    this.apiEndpoint =
+      process.env.API_ENDPOINT || 'https://1bvgxdmq64.execute-api.us-east-1.amazonaws.com/dev/';
   }
 
   async makeRequest(method: string, path: string, data?: any, authToken?: string) {
@@ -178,11 +191,11 @@ class APITestHelper {
 describe('User Lifecycle Integration Tests', () => {
   const cognitoHelper = new CognitoTestHelper();
   const apiHelper = new APITestHelper();
-  
+
   const testUserEmail = `test-${Date.now()}@example.com`;
   const testUserPassword = 'TestPass123!';
   const testUserName = 'Integration Test User';
-  
+
   let testUserTokens: {
     idToken: string;
     accessToken: string;
@@ -204,12 +217,12 @@ describe('User Lifecycle Integration Tests', () => {
   describe('Health Check', () => {
     it('should return healthy status without authentication', async () => {
       const response = await apiHelper.makeRequest('GET', 'health');
-      
+
       expect(response.status).toBe(200);
       expect(response.data).toEqual({
         status: 'healthy',
         service: 'english-learning-app-backend',
-        version: '1.2.1'
+        version: '1.2.1',
       });
     });
   });
@@ -219,14 +232,14 @@ describe('User Lifecycle Integration Tests', () => {
       // Note: This test documents the current behavior
       // The signup endpoint should not require authentication, but due to API Gateway routing,
       // it currently returns 401. This is expected until routing is fixed.
-      
+
       try {
         await apiHelper.makeRequest('POST', 'users/signup', {
           email: testUserEmail,
           password: testUserPassword,
-          name: testUserName
+          name: testUserName,
         });
-        
+
         // If we reach here, the routing issue has been fixed
         expect(true).toBe(true);
       } catch (error: any) {
@@ -240,9 +253,9 @@ describe('User Lifecycle Integration Tests', () => {
       try {
         await apiHelper.makeRequest('POST', 'users/confirm', {
           email: testUserEmail,
-          confirmationCode: '123456'
+          confirmationCode: '123456',
         });
-        
+
         // If we reach here, the routing issue has been fixed
         expect(true).toBe(true);
       } catch (error: any) {
@@ -261,11 +274,13 @@ describe('User Lifecycle Integration Tests', () => {
           testUserPassword,
           testUserName
         );
-        
+
         expect(username).toBe(testUserEmail);
       } catch (error: any) {
         if (error.name === 'AccessDeniedException') {
-          console.warn('⚠️  Skipping test: IAM permissions required: cognito-idp:AdminCreateUser, cognito-idp:AdminSetUserPassword, cognito-idp:AdminDeleteUser');
+          console.warn(
+            '⚠️  Skipping test: IAM permissions required: cognito-idp:AdminCreateUser, cognito-idp:AdminSetUserPassword, cognito-idp:AdminDeleteUser'
+          );
           return; // Skip this test
         } else {
           throw error;
@@ -276,16 +291,18 @@ describe('User Lifecycle Integration Tests', () => {
     it('should authenticate user and get JWT tokens', async () => {
       try {
         testUserTokens = await cognitoHelper.signInUser(testUserEmail, testUserPassword);
-        
+
         expect(testUserTokens.idToken).toBeDefined();
         expect(testUserTokens.accessToken).toBeDefined();
         expect(testUserTokens.refreshToken).toBeDefined();
-        
+
         // Verify ID token structure (JWT format)
         expect(testUserTokens.idToken.split('.')).toHaveLength(3);
       } catch (error: any) {
         if (error.message?.includes('AdminInitiateAuth requires additional IAM permissions')) {
-          console.warn('⚠️  Skipping test: IAM permissions required: cognito-idp:AdminInitiateAuth');
+          console.warn(
+            '⚠️  Skipping test: IAM permissions required: cognito-idp:AdminInitiateAuth'
+          );
           return; // Skip this test
         } else {
           throw error;
@@ -295,17 +312,21 @@ describe('User Lifecycle Integration Tests', () => {
 
     it('should create user profile via authenticated API', async () => {
       if (!testUserTokens) {
-        console.warn('⚠️  Skipping test: testUserTokens not available due to authentication failure');
+        console.warn(
+          '⚠️  Skipping test: testUserTokens not available due to authentication failure'
+        );
         return;
       }
-      
+
       const response = await apiHelper.makeRequest(
-        'POST', 
-        'users', 
-        { /* Profile data will be extracted from JWT claims */ },
+        'POST',
+        'users',
+        {
+          /* Profile data will be extracted from JWT claims */
+        },
         testUserTokens.idToken
       );
-      
+
       expect(response.status).toBe(201);
       const userData = response.data as UserResponse;
       console.log('Created user profile:', userData);
@@ -316,24 +337,28 @@ describe('User Lifecycle Integration Tests', () => {
 
     it('should get user profile via authenticated API', async () => {
       if (!testUserTokens) {
-        console.warn('⚠️  Skipping test: testUserTokens not available due to authentication failure');
+        console.warn(
+          '⚠️  Skipping test: testUserTokens not available due to authentication failure'
+        );
         return;
       }
-      
+
       // Extract the user ID from the JWT token (sub claim)
       // In a real app, the client would store this after login
-      const payload = JSON.parse(Buffer.from(testUserTokens.idToken.split('.')[1], 'base64').toString());
+      const payload = JSON.parse(
+        Buffer.from(testUserTokens.idToken.split('.')[1], 'base64').toString()
+      );
       const userId = payload.sub;
       console.log('JWT payload userId (sub):', userId);
       console.log('Expected test user email:', testUserEmail);
-      
+
       const response = await apiHelper.makeRequest(
-        'GET', 
-        `users/${userId}`, 
+        'GET',
+        `users/${userId}`,
         null,
         testUserTokens.idToken
       );
-      
+
       expect(response.status).toBe(200);
       const userData = response.data as UserResponse;
       console.log('GET user response:', userData);
@@ -343,22 +368,24 @@ describe('User Lifecycle Integration Tests', () => {
 
     it('should change password via authenticated API', async () => {
       if (!testUserTokens) {
-        console.warn('⚠️  Skipping test: testUserTokens not available due to authentication failure');
+        console.warn(
+          '⚠️  Skipping test: testUserTokens not available due to authentication failure'
+        );
         return;
       }
-      
+
       const newPassword = 'NewTestPass123!';
-      
+
       const response = await apiHelper.makeRequest(
-        'POST', 
+        'POST',
         'users/change-password',
         {
           oldPassword: testUserPassword,
-          newPassword: newPassword
+          newPassword: newPassword,
         },
         testUserTokens.accessToken // Note: requires access token, not ID token
       );
-      
+
       expect(response.status).toBe(200);
       const responseData = response.data as MessageResponse;
       expect(responseData.message).toContain('Password changed successfully');
@@ -366,17 +393,19 @@ describe('User Lifecycle Integration Tests', () => {
 
     it('should delete account via authenticated API', async () => {
       if (!testUserTokens) {
-        console.warn('⚠️  Skipping test: testUserTokens not available due to authentication failure');
+        console.warn(
+          '⚠️  Skipping test: testUserTokens not available due to authentication failure'
+        );
         return;
       }
-      
+
       const response = await apiHelper.makeRequest(
-        'DELETE', 
+        'DELETE',
         'users/account',
         null,
         testUserTokens.accessToken // Note: requires access token, not ID token
       );
-      
+
       expect(response.status).toBe(200);
       const responseData = response.data as MessageResponse;
       expect(responseData.message).toContain('Account deleted successfully');
@@ -384,18 +413,15 @@ describe('User Lifecycle Integration Tests', () => {
 
     it('should fail to access API after account deletion', async () => {
       if (!testUserTokens) {
-        console.warn('⚠️  Skipping test: testUserTokens not available due to authentication failure');
+        console.warn(
+          '⚠️  Skipping test: testUserTokens not available due to authentication failure'
+        );
         return;
       }
-      
+
       try {
-        await apiHelper.makeRequest(
-          'GET', 
-          'users', 
-          null,
-          testUserTokens.idToken
-        );
-        
+        await apiHelper.makeRequest('GET', 'users', null, testUserTokens.idToken);
+
         fail('Expected request to fail after account deletion');
       } catch (error: any) {
         expect(error.response?.status).toBe(401);
@@ -409,21 +435,14 @@ describe('User Lifecycle Integration Tests', () => {
       accessToken: string;
       refreshToken: string;
     };
-    
+
     const audioTestUserEmail = `audio-test-${Date.now()}@example.com`;
 
     beforeAll(async () => {
       // Create a separate user for audio tests
-      await cognitoHelper.createTestUser(
-        audioTestUserEmail,
-        testUserPassword,
-        'Audio Test User'
-      );
-      
-      audioTestUserTokens = await cognitoHelper.signInUser(
-        audioTestUserEmail,
-        testUserPassword
-      );
+      await cognitoHelper.createTestUser(audioTestUserEmail, testUserPassword, 'Audio Test User');
+
+      audioTestUserTokens = await cognitoHelper.signInUser(audioTestUserEmail, testUserPassword);
     });
 
     afterAll(async () => {
@@ -439,7 +458,7 @@ describe('User Lifecycle Integration Tests', () => {
           fileName: 'jwt-test-audio.mp3',
           contentType: 'audio/mpeg',
           duration: 30,
-          fileSize: 1024 * 1024
+          fileSize: 1024 * 1024,
         },
         audioTestUserTokens.idToken
       );
@@ -459,11 +478,11 @@ describe('User Lifecycle Integration Tests', () => {
           {
             action: 'generateUploadUrl',
             fileName: 'unauthorized-test.mp3',
-            contentType: 'audio/mpeg'
+            contentType: 'audio/mpeg',
           }
           // No auth token
         );
-        
+
         fail('Expected request to fail without authentication');
       } catch (error: any) {
         expect(error.response.status).toBe(401);
@@ -480,7 +499,7 @@ describe('User Lifecycle Integration Tests', () => {
           action: 'generateUploadUrl',
           fileName: 'complete-workflow-test.mp3',
           contentType: 'audio/mpeg',
-          fileSize: 2048
+          fileSize: 2048,
         },
         audioTestUserTokens.idToken
       );
@@ -492,7 +511,7 @@ describe('User Lifecycle Integration Tests', () => {
       // Step 2: Upload actual file to S3
       const testAudioContent = Buffer.alloc(2048, 'JWT authenticated audio test');
       const s3UploadResponse = await axios.put(uploadData.uploadUrl, testAudioContent, {
-        headers: { 'Content-Type': 'audio/mpeg' }
+        headers: { 'Content-Type': 'audio/mpeg' },
       });
       expect(s3UploadResponse.status).toBe(200);
 
@@ -502,7 +521,7 @@ describe('User Lifecycle Integration Tests', () => {
         'audio',
         {
           action: 'generateDownloadUrl',
-          audioFileKey: uploadData.audioFileKey
+          audioFileKey: uploadData.audioFileKey,
         },
         audioTestUserTokens.idToken
       );
@@ -533,7 +552,7 @@ describe('User Lifecycle Integration Tests', () => {
   describe('User Isolation Tests', () => {
     let user1Tokens: any;
     let user2Tokens: any;
-    
+
     const user1Email = `user1-${Date.now()}@example.com`;
     const user2Email = `user2-${Date.now()}@example.com`;
 
@@ -541,7 +560,7 @@ describe('User Lifecycle Integration Tests', () => {
       // Create two test users
       await cognitoHelper.createTestUser(user1Email, testUserPassword, 'User One');
       await cognitoHelper.createTestUser(user2Email, testUserPassword, 'User Two');
-      
+
       user1Tokens = await cognitoHelper.signInUser(user1Email, testUserPassword);
       user2Tokens = await cognitoHelper.signInUser(user2Email, testUserPassword);
     });
@@ -559,7 +578,7 @@ describe('User Lifecycle Integration Tests', () => {
         {
           action: 'generateUploadUrl',
           fileName: 'private-file.mp3',
-          contentType: 'audio/mpeg'
+          contentType: 'audio/mpeg',
         },
         user1Tokens.idToken
       );
@@ -573,11 +592,11 @@ describe('User Lifecycle Integration Tests', () => {
           'audio',
           {
             action: 'generateDownloadUrl',
-            audioFileKey: audioFileKey
+            audioFileKey: audioFileKey,
           },
           user2Tokens.idToken
         );
-        
+
         fail('Expected cross-user access to be denied');
       } catch (error: any) {
         expect(error.response.status).toBe(403);
@@ -593,7 +612,7 @@ describe('User Lifecycle Integration Tests', () => {
       // User 2 tries to access User 1's profile
       try {
         await apiHelper.makeRequest('GET', `users/${user1Id}`, null, user2Tokens.idToken);
-        
+
         fail('Expected cross-user profile access to be denied');
       } catch (error: any) {
         expect(error.response?.status).toBe(403);

@@ -167,10 +167,7 @@ describe('UploadAudioUseCase', () => {
     });
 
     it('should handle case-insensitive content types', async () => {
-      mockAudioStorageService.getSupportedContentTypes.mockReturnValue([
-        'audio/mpeg',
-        'audio/wav',
-      ]);
+      mockAudioStorageService.getSupportedContentTypes.mockReturnValue(['audio/mpeg', 'audio/wav']);
 
       const mockResponse = {
         audioFileKey: 'audio-files/user123/test-audio.mp3',

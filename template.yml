@@ -374,25 +374,43 @@ Resources:
   #   Metadata:
   #     BuildMethod: makefile
 
+  # Audio Function with Direct Routes
   AudioFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ./
       Handler: dist/presentation/controllers/domain/audio/index.handler
       Events:
-        # Handle all audio routes
-        AudioProxy:
+        AudioUpload:
           Type: Api
           Properties:
             RestApiId: !Ref ApiGatewayApi
-            Path: /audio/{proxy+}
-            Method: ANY
-        AudioRoot:
+            Path: /audio/upload
+            Method: POST
+        AudioDownload:
           Type: Api
           Properties:
             RestApiId: !Ref ApiGatewayApi
-            Path: /audio
-            Method: ANY
+            Path: /audio/download
+            Method: POST
+        AudioMetadata:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGatewayApi
+            Path: /audio/metadata
+            Method: POST
+        AudioFileGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGatewayApi
+            Path: /audio/files/{audioFileKey}
+            Method: GET
+        AudioFileDelete:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGatewayApi
+            Path: /audio/files/{audioFileKey}
+            Method: DELETE
       Policies:
         - S3ReadPolicy:
             BucketName: !Ref AudioFilesBucket

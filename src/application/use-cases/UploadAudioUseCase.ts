@@ -1,4 +1,8 @@
-import { AudioStorageService, UploadAudioRequest, UploadAudioResponse } from '../../infrastructure/services/AudioStorageService';
+import {
+  AudioStorageService,
+  UploadAudioRequest,
+  UploadAudioResponse,
+} from '../../infrastructure/services/AudioStorageService';
 
 export interface GenerateUploadUrlRequest {
   fileName: string;
@@ -26,12 +30,16 @@ export class UploadAudioUseCase {
 
     // Validate file size
     if (request.fileSize && request.fileSize > this.audioStorageService.getMaxFileSizeBytes()) {
-      throw new Error(`File size exceeds maximum allowed size of ${this.audioStorageService.getMaxFileSizeBytes() / (1024 * 1024)}MB`);
+      throw new Error(
+        `File size exceeds maximum allowed size of ${this.audioStorageService.getMaxFileSizeBytes() / (1024 * 1024)}MB`
+      );
     }
 
     // Validate duration
     if (request.duration && request.duration > this.audioStorageService.getMaxDurationSeconds()) {
-      throw new Error(`Audio duration exceeds maximum allowed duration of ${this.audioStorageService.getMaxDurationSeconds()} seconds`);
+      throw new Error(
+        `Audio duration exceeds maximum allowed duration of ${this.audioStorageService.getMaxDurationSeconds()} seconds`
+      );
     }
 
     // Validate file name
