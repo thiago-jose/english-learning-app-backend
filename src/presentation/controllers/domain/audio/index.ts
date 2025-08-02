@@ -1,6 +1,7 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { AudioStorageService } from '../../../../infrastructure/services/AudioStorageService';
 import { UploadAudioUseCase } from '../../../../application/use-cases/UploadAudioUseCase';
+import { getAuthenticatedUser, getUserIdWithFallback } from '../../../utils/auth';
 
 const audioStorageService = new AudioStorageService(
   process.env.STORAGE_BUCKET_NAME || 'english-learning-app-storage',
@@ -26,11 +27,20 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   }
 
   try {
-    // Extract user ID from JWT claims (production) or test headers (integration tests)
-    const userId = event.requestContext?.authorizer?.claims?.sub || 
-                   event.headers?.['X-Test-User-Id'] || 
-                   event.headers?.['x-test-user-id'] || 
-                   'anonymous';
+    // Extract authenticated user information from Cognito JWT claims
+    // Falls back to test headers for integration tests during transition
+    let userId: string;
+    let authenticatedUser: any = null;
+    
+    try {
+      authenticatedUser = getAuthenticatedUser(event);
+      userId = authenticatedUser.userId;
+      console.log(`Authenticated user: ${authenticatedUser.name} (${authenticatedUser.email}) via ${authenticatedUser.provider}`);
+    } catch (authError) {
+      // Temporary fallback during deployment transition
+      userId = getUserIdWithFallback(event);
+      console.warn('Using fallback user ID extraction:', userId);
+    }
 
     switch (event.httpMethod) {
       case 'POST':

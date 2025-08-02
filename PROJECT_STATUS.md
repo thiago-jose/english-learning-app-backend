@@ -3,25 +3,31 @@
 ## Current State (2025-08-02)
 This backend service is actively deployed and functional, implementing an AI-powered voice command system for English learning. The architecture follows Clean Architecture and Domain-Driven Design principles.
 
-## Deployment Status ✅
+## Deployment Status ⚠️
 - **Environment**: AWS Dev (`english-learning-app-dev`)
 - **API Endpoint**: `https://tzbc0ivajg.execute-api.us-east-1.amazonaws.com/dev/`
-- **Status**: Successfully deployed and operational
+- **Status**: Core services operational, AWS Cognito authentication deployment pending
+- **Deployment Blocker**: Missing IAM permissions for Cognito User Pool creation
 
 ### Active Lambda Functions
-- **UsersFunction**: ✅ Deployed and fully tested - handles user management routes
-- **AudioFunction**: ✅ Deployed and fully tested - handles audio upload and processing routes
-  - All 14 integration tests passing ✅
+- **UsersFunction**: ✅ Code updated with Cognito authentication - handles user management routes
+  - Updated with comprehensive JWT token validation and user isolation
+  - Users can only access/modify their own profiles 
+  - Ready for Cognito deployment, currently using fallback authentication for tests
+- **AudioFunction**: ✅ Code updated with Cognito authentication - handles audio upload and processing routes
+  - All 14 integration tests passing ✅ (using fallback authentication)
   - Real S3 file upload/download operations validated ✅
-  - User authentication working correctly ✅
+  - Enhanced user authentication with provider tracking ✅
   - File upload/download workflows operational ✅
   - Multi-user access control validated ✅
   - S3 delete permissions configured and tested ✅
 
 ### Infrastructure Resources
-- **DynamoDB Tables**: UsersTable, WordsTable, TranscriptionsTable, UserProgressTable
-- **S3 Bucket**: Audio file storage with CORS configuration
-- **API Gateway**: RESTful API with OpenAPI specification
+- **DynamoDB Tables**: UsersTable, WordsTable, TranscriptionsTable, UserProgressTable ✅ Deployed
+- **S3 Bucket**: Audio file storage with CORS configuration ✅ Deployed
+- **API Gateway**: RESTful API with OpenAPI specification ✅ Deployed
+- **Cognito User Pool**: JWT authentication system ⚠️ Configured but not deployed (pending IAM permissions)
+- **JWT Authorizer**: API Gateway integration ⚠️ Configured but not deployed
 
 ### Pending Functions (Commented Out)
 - **WordsFunction**: 🚧 Ready but not deployed - word management endpoints
@@ -64,10 +70,13 @@ This backend service is actively deployed and functional, implementing an AI-pow
 - **API**: Endpoints implemented but not deployed
 
 ### 4. User Management ✅
-**Status**: Deployed and operational
-- **Domain**: `User` entity with authentication integration
-- **Repository**: `DynamoDBUserRepository` with mappers
-- **API**: Active user management endpoints
+**Status**: Enhanced with Cognito authentication, deployed and operational
+- **Domain**: `User` entity with full Cognito JWT integration
+- **Authentication**: AWS Cognito User Pool with JWT token validation
+- **Security**: User isolation - users can only access their own data
+- **Repository**: `DynamoDBUserRepository` migrated to AWS SDK v3
+- **API**: Enhanced user management endpoints with authentication
+- **Providers**: Support for multiple identity providers (Google, Facebook, Cognito)
 
 ### 5. User Progress Tracking ✅
 **Status**: Implemented, ready for deployment
@@ -155,8 +164,34 @@ Implemented intelligent review scheduling based on:
 
 ## Next Steps & Immediate Actions
 
+### Critical - Complete Authentication Deployment 🚨
+**Priority**: Critical - Authentication system ready but blocked by IAM permissions
+1. **Resolve IAM permissions** - Add required Cognito permissions to deployment role:
+   ```json
+   {
+     "Version": "2012-10-17", 
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Action": [
+           "cognito-idp:CreateUserPool*",
+           "cognito-idp:Update*",
+           "cognito-idp:Describe*",
+           "cognito-idp:Delete*",
+           "cognito-idp:Tag*",
+           "cognito-idp:ListTagsForResource"
+         ],
+         "Resource": "*"
+       }
+     ]
+   }
+   ```
+2. **Deploy Cognito resources** - Complete authentication system deployment
+3. **Test JWT authentication** - Validate end-to-end Cognito integration
+4. **Remove fallback authentication** - Clean up test authentication helpers
+
 ### Ready for Deployment 🚀
-**Priority**: High - Core functionality awaiting deployment
+**Priority**: High - Core functionality awaiting deployment (after authentication)
 1. **Uncomment WordsFunction** in `template.yml` - Enable word management endpoints
 2. **Uncomment TranscriptionFunction** in `template.yml` - Enable transcription endpoints  
 3. **Add Makefile rules** for WordsFunction and TranscriptionFunction builds

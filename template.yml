@@ -28,12 +28,20 @@ Resources:
     Type: AWS::Serverless::Api
     Properties:
       StageName: !Ref Environment
-      OpenApiVersion: '3.0.1'
-      DefinitionBody:
-        Fn::Transform:
-          Name: AWS::Include
-          Parameters:
-            Location: src/presentation/controllers/openapi.yml
+      # Configure Cognito JWT Authorizer
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !GetAtt CognitoUserPool.Arn
+            Identity:
+              Header: Authorization
+      # CORS configuration
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+        MaxAge: "'600'"
 
   # DynamoDB Tables
   UsersTable:
@@ -155,6 +163,74 @@ Resources:
             Status: Enabled
             Prefix: transcriptions/
             ExpirationInDays: 30
+
+  # Cognito User Pool for Authentication
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub ${Environment}-english-learning-users
+      # Allow users to sign in with email instead of username
+      UsernameAttributes:
+        - email
+      # Auto-verify email addresses
+      AutoVerifiedAttributes:
+        - email
+      # Email settings
+      EmailConfiguration:
+        EmailSendingAccount: COGNITO_DEFAULT
+      # Password policy
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+      # Account recovery settings  
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      # User pool add-ons
+      UserPoolAddOns:
+        AdvancedSecurityMode: ENFORCED
+      # Schema (user attributes)
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+        - Name: name
+          AttributeDataType: String
+          Required: false
+          Mutable: true
+        - Name: picture
+          AttributeDataType: String
+          Required: false
+          Mutable: true
+
+  # Cognito User Pool Client (Application)
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref CognitoUserPool
+      ClientName: !Sub ${Environment}-english-learning-web-client
+      # No client secret for web/mobile apps (public clients)
+      GenerateSecret: false
+      # Token validity periods
+      IdTokenValidity: 60        # 1 hour
+      AccessTokenValidity: 60    # 1 hour  
+      RefreshTokenValidity: 30   # 30 days
+      TokenValidityUnits:
+        IdToken: minutes
+        AccessToken: minutes
+        RefreshToken: days
+      # Prevent user existence errors for security
+      PreventUserExistenceErrors: ENABLED
+      # Enable SRP (Secure Remote Password) protocol
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
 
   # Lambda Functions
   UsersFunction:
@@ -417,3 +493,22 @@ Outputs:
     Value: !Ref ApiGatewayApi
     Export:
       Name: !Sub "${AWS::StackName}-ApiGatewayId"
+  
+  # Cognito User Pool
+  CognitoUserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref CognitoUserPool
+    Export:
+      Name: !Sub "${AWS::StackName}-CognitoUserPoolId"
+  
+  CognitoUserPoolArn:
+    Description: Cognito User Pool ARN
+    Value: !GetAtt CognitoUserPool.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-CognitoUserPoolArn"
+  
+  CognitoUserPoolClientId:
+    Description: Cognito User Pool Client ID
+    Value: !Ref CognitoUserPoolClient
+    Export:
+      Name: !Sub "${AWS::StackName}-CognitoUserPoolClientId"

@@ -43,3 +43,33 @@ English learning application backend built with AWS SAM, TypeScript, Node.js, Dy
 - **CloudFormation**: Uses `@aws-sdk/client-cloudformation` for environment generation
 - **Transcribe**: Uses `@aws-sdk/client-transcribe`
 - **Bedrock**: Uses `@aws-sdk/client-bedrock-runtime`
+
+## Authentication & Authorization
+
+### Cognito User Pool Implementation (In Progress)
+- **Status**: Code complete, deployment pending IAM permissions
+- **Authentication Method**: AWS Cognito User Pools with JWT tokens
+- **API Authorization**: API Gateway JWT Authorizer (configured but not deployed)
+- **User Isolation**: Each user can only access their own resources
+- **Fallback Support**: Test headers supported during development/testing
+
+### Authentication Utilities
+- **Location**: `src/presentation/utils/auth.ts`
+- **Key Functions**:
+  - `getAuthenticatedUser(event)`: Extract full user info from JWT claims
+  - `getUserId(event)`: Simple user ID extraction
+  - `getUserIdWithFallback(event)`: Fallback for testing during deployment
+- **User Data**: Includes userId, email, name, picture, provider information
+
+### Current Authentication Flow
+1. Frontend sends JWT token in `Authorization: Bearer <token>` header
+2. API Gateway validates JWT against Cognito User Pool (when deployed)
+3. API Gateway passes validated claims to Lambda via `event.requestContext.authorizer.claims`
+4. Lambda extracts user info using authentication utilities
+5. Lambda enforces user-specific access controls
+
+### Security Features Implemented
+- **User Resource Isolation**: Users can only access/modify their own data
+- **Provider Tracking**: Track authentication provider (email/password, Google, Facebook)
+- **Comprehensive Error Handling**: Proper 401/403 responses for auth failures
+- **CORS Support**: Configured for cross-origin requests with authorization headers
