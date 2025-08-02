@@ -1,18 +1,14 @@
-import * as AWS from 'aws-sdk';
+import { CloudFormationClient, DescribeStacksCommand } from '@aws-sdk/client-cloudformation';
 import * as fs from 'fs';
 import * as path from 'path';
-
-// Configure AWS SDK
-AWS.config.update({ region: 'us-east-1' });
-
 
 async function generateEnvFile(env: string): Promise<void> {
   try {
     const stackName = `english-learning-app-${env}`;
-    const cloudFormation = new AWS.CloudFormation();
+    const cloudFormation = new CloudFormationClient({ region: 'us-east-1' });
 
     // Get stack outputs
-    const { Stacks } = await cloudFormation.describeStacks({ StackName: stackName }).promise();
+    const { Stacks } = await cloudFormation.send(new DescribeStacksCommand({ StackName: stackName }));
     const stack = Stacks?.[0];
     const outputs = stack?.Outputs || [];
 

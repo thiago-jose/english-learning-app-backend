@@ -38,12 +38,10 @@
     "@aws-sdk/lib-dynamodb": "^3.0.0",
     "@aws-sdk/s3-request-presigner": "^3.850.0",
     "aws-lambda": "^1.0.7",
-    "aws-sdk": "^2.1001.0",
     "uuid": "^9.0.0"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.136",
-    "@types/aws-sdk": "^2.7.4",
     "@types/axios": "^0.9.36",
     "@types/dotenv": "^6.1.1",
     "@types/jest": "^29.5.14",

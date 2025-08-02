@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.2] - 2025-08-02
+
+### 🔧 Fixed
+- **AWS SDK v2 Maintenance Warning**: Migrated from AWS SDK v2 to v3 to eliminate maintenance mode warnings
+  - **Issue**: Build process showing AWS SDK v2 maintenance mode warnings during compilation
+  - **Root Cause**: Project was using both AWS SDK v2 (`aws-sdk`) and v3 packages simultaneously
+  - **Solution**: Complete migration to AWS SDK v3 with modern command pattern
+  - **Result**: Clean builds without deprecation warnings
+
+### 🚀 Enhanced
+- **DynamoDB Repository Pattern**: Updated to AWS SDK v3 command pattern
+  - **Before**: Using `DynamoDB.DocumentClient()` with `.promise()` methods
+  - **After**: Using `DynamoDBDocumentClient` with `send()` and command classes
+  - **Files Updated**: `src/infrastructure/repositories/DynamoDBUserRepository.ts`
+  - **Commands**: `GetCommand`, `ScanCommand`, `PutCommand`, `DeleteCommand`
+
+- **CloudFormation Service**: Migrated environment generation script
+  - **Before**: Using `AWS.CloudFormation()` class with `.promise()` methods  
+  - **After**: Using `CloudFormationClient` with `DescribeStacksCommand`
+  - **File Updated**: `scripts/generate-env.ts`
+
+- **Test Configuration**: Updated AWS SDK setup for testing
+  - **Before**: Using `AWS.config.update()` with global configuration
+  - **After**: Using environment variables for AWS SDK v3 credential management
+  - **File Updated**: `src/test/setup.ts`
+
+### ✅ Removed
+- **Deprecated Dependencies**: Cleaned up package.json
+  - Removed `aws-sdk` v2 package (2.1001.0)
+  - Removed `@types/aws-sdk` v2 type definitions
+  - Retained all AWS SDK v3 packages with specific service clients
+
+### 📋 Technical Details
+- **Migration Pattern**: 
+  - `new AWS.Service()` → `new ServiceClient({})`
+  - `.operation().promise()` → `.send(new OperationCommand())`
+  - Global config → Environment variables and client configuration
+- **Type Safety**: All operations now use strongly-typed command classes
+- **Performance**: AWS SDK v3 provides smaller bundle sizes and better tree-shaking
+- **Future-Proof**: No more maintenance mode warnings, actively supported SDK
+
+### 🧪 Validation
+- **Build Process**: ✅ Clean compilation without warnings
+- **SAM Build**: ✅ Lambda functions build successfully 
+- **Dependencies**: ✅ Production bundle size optimized with v3 packages
+- **Functionality**: ✅ All existing operations maintain backward compatibility
+
 ## [1.1.1] - 2025-08-01
 
 ### 🔧 Fixed

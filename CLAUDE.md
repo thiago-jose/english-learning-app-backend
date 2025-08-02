@@ -35,3 +35,11 @@ English learning application backend built with AWS SAM, TypeScript, Node.js, Dy
 - Build: `npm run sam:build`
 - Test: `npm test`, `npm run test:unit`, `npm run test:integ:dev`
 - Lint: `npm run lint`
+
+### AWS SDK Configuration
+- **SDK Version**: AWS SDK v3 (migrated from v2)
+- **DynamoDB**: Uses `@aws-sdk/client-dynamodb` and `@aws-sdk/lib-dynamodb` with command pattern
+- **S3**: Uses `@aws-sdk/client-s3` and `@aws-sdk/s3-request-presigner`
+- **CloudFormation**: Uses `@aws-sdk/client-cloudformation` for environment generation
+- **Transcribe**: Uses `@aws-sdk/client-transcribe`
+- **Bedrock**: Uses `@aws-sdk/client-bedrock-runtime`

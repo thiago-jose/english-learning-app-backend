@@ -1,6 +1,6 @@
 # Project Status: English Learning App Backend
 
-## Current State (2025-08-01)
+## Current State (2025-08-02)
 This backend service is actively deployed and functional, implementing an AI-powered voice command system for English learning. The architecture follows Clean Architecture and Domain-Driven Design principles.
 
 ## Deployment Status ✅
@@ -138,9 +138,20 @@ Implemented intelligent review scheduling based on:
 - `AWS_REGION` - AWS region for services
 
 ### Dependencies Added
-- `@aws-sdk/client-bedrock-runtime` - AI word analysis
-- `@aws-sdk/client-s3` - File storage
-- `@aws-sdk/client-transcribe` - Speech-to-text
+- `@aws-sdk/client-bedrock-runtime` - AI word analysis (AWS SDK v3)
+- `@aws-sdk/client-s3` - File storage (AWS SDK v3)
+- `@aws-sdk/client-transcribe` - Speech-to-text (AWS SDK v3)
+- `@aws-sdk/client-dynamodb` - Database access (AWS SDK v3)
+- `@aws-sdk/lib-dynamodb` - DynamoDB document client (AWS SDK v3)
+- `@aws-sdk/client-cloudformation` - Environment generation (AWS SDK v3)
+
+### Migrations Completed
+- **AWS SDK v2 → v3**: ✅ Complete migration from maintenance mode v2 to v3
+  - Removed deprecated `aws-sdk` v2 package and `@types/aws-sdk`
+  - Updated all DynamoDB operations to use command pattern
+  - Migrated CloudFormation service to v3 client
+  - Updated test setup to use environment variables instead of AWS.config
+  - All builds now run without SDK v2 maintenance warnings
 
 ## Next Steps & Immediate Actions
 

@@ -1,4 +1,5 @@
-import { DynamoDB } from 'aws-sdk';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, GetCommand, ScanCommand, PutCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
 import { User } from '../../domain/entities/User';
 import { IUserRepository } from '../../domain/repositories/IUserRepository';
 import { IUserMapper } from '../mappers/IUserMapper';
@@ -6,22 +7,21 @@ import { UserDynamoDBItem } from '../mappers/types';
 
 export class DynamoDBUserRepository implements IUserRepository {
   private readonly tableName: string;
-  private readonly dynamoDB: DynamoDB.DocumentClient;
+  private readonly dynamoDB: DynamoDBDocumentClient;
   private readonly userMapper: IUserMapper;
 
   constructor(tableName: string, userMapper: IUserMapper) {
     this.tableName = tableName;
-    this.dynamoDB = new DynamoDB.DocumentClient();
+    const client = new DynamoDBClient({});
+    this.dynamoDB = DynamoDBDocumentClient.from(client);
     this.userMapper = userMapper;
   }
 
   async findById(id: string): Promise<User | null> {
-    const result = await this.dynamoDB
-      .get({
-        TableName: this.tableName,
-        Key: { id },
-      })
-      .promise();
+    const result = await this.dynamoDB.send(new GetCommand({
+      TableName: this.tableName,
+      Key: { id },
+    }));
 
     if (!result.Item) {
       return null;
@@ -31,15 +31,13 @@ export class DynamoDBUserRepository implements IUserRepository {
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    const result = await this.dynamoDB
-      .scan({
-        TableName: this.tableName,
-        FilterExpression: 'email = :email',
-        ExpressionAttributeValues: {
-          ':email': email,
-        },
-      })
-      .promise();
+    const result = await this.dynamoDB.send(new ScanCommand({
+      TableName: this.tableName,
+      FilterExpression: 'email = :email',
+      ExpressionAttributeValues: {
+        ':email': email,
+      },
+    }));
 
     if (!result.Items || result.Items.length === 0) {
       return null;
@@ -49,11 +47,9 @@ export class DynamoDBUserRepository implements IUserRepository {
   }
 
   async findAll(): Promise<User[]> {
-    const result = await this.dynamoDB
-      .scan({
-        TableName: this.tableName,
-      })
-      .promise();
+    const result = await this.dynamoDB.send(new ScanCommand({
+      TableName: this.tableName,
+    }));
 
     return (result.Items || []).map((item) => this.userMapper.toDomain(item as UserDynamoDBItem));
   }
@@ -61,12 +57,10 @@ export class DynamoDBUserRepository implements IUserRepository {
   async create(user: User): Promise<User> {
     const dynamoItem = this.userMapper.toDynamoDB(user);
 
-    await this.dynamoDB
-      .put({
-        TableName: this.tableName,
-        Item: dynamoItem,
-      })
-      .promise();
+    await this.dynamoDB.send(new PutCommand({
+      TableName: this.tableName,
+      Item: dynamoItem,
+    }));
 
     return user;
   }
@@ -74,22 +68,18 @@ export class DynamoDBUserRepository implements IUserRepository {
   async update(user: User): Promise<User> {
     const dynamoItem = this.userMapper.toDynamoDB(user);
 
-    await this.dynamoDB
-      .put({
-        TableName: this.tableName,
-        Item: dynamoItem,
-      })
-      .promise();
+    await this.dynamoDB.send(new PutCommand({
+      TableName: this.tableName,
+      Item: dynamoItem,
+    }));
 
     return user;
   }
 
   async delete(id: string): Promise<void> {
-    await this.dynamoDB
-      .delete({
-        TableName: this.tableName,
-        Key: { id },
-      })
-      .promise();
+    await this.dynamoDB.send(new DeleteCommand({
+      TableName: this.tableName,
+      Key: { id },
+    }));
   }
 }
