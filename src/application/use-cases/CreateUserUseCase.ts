@@ -2,6 +2,7 @@ import { User } from '../../domain/entities/User';
 import { IUserRepository } from '../../domain/repositories/IUserRepository';
 
 interface CreateUserDTO {
+  id?: string;
   email: string;
   name: string;
 }
@@ -17,6 +18,7 @@ export class CreateUserUseCase {
     }
 
     const user = new User({
+      id: data.id,
       email: data.email,
       name: data.name,
     });

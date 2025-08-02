@@ -214,7 +214,8 @@ async function handleGetMetadata(body: any, userId: string): Promise<any> {
 }
 
 async function handleGetAudioUrl(event: any, userId: string): Promise<any> {
-  const audioFileKey = event.pathParameters?.audioFileKey;
+  // With {proxy+} route, the path parameter is in 'proxy', not 'audioFileKey'
+  const audioFileKey = event.pathParameters?.proxy || event.pathParameters?.audioFileKey;
 
   if (!audioFileKey) {
     return {
@@ -250,7 +251,8 @@ async function handleGetAudioUrl(event: any, userId: string): Promise<any> {
 }
 
 async function handleDeleteAudio(event: any, userId: string): Promise<any> {
-  const audioFileKey = event.pathParameters?.audioFileKey;
+  // With {proxy+} route, the path parameter is in 'proxy', not 'audioFileKey'
+  const audioFileKey = event.pathParameters?.proxy || event.pathParameters?.audioFileKey;
 
   if (!audioFileKey) {
     return {

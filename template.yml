@@ -227,10 +227,11 @@ Resources:
         RefreshToken: days
       # Prevent user existence errors for security
       PreventUserExistenceErrors: ENABLED
-      # Enable SRP (Secure Remote Password) protocol
+      # Enable SRP (Secure Remote Password) protocol and admin auth for testing
       ExplicitAuthFlows:
         - ALLOW_USER_SRP_AUTH
         - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_ADMIN_USER_PASSWORD_AUTH
 
   # Lambda Functions
   UsersFunction:
@@ -239,7 +240,7 @@ Resources:
       CodeUri: ./
       Handler: dist/presentation/controllers/domain/user/index.handler
       Events:
-        # Handle all users routes
+        # Handle all users routes (authenticated)
         UsersProxy:
           Type: Api
           Properties:
@@ -252,19 +253,41 @@ Resources:
             RestApiId: !Ref ApiGatewayApi
             Path: /users
             Method: ANY
-        # Health check endpoint
+        # Public signup endpoint (no auth required)
+        SignupEndpoint:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGatewayApi
+            Path: /users/signup
+            Method: POST
+            Auth:
+              Authorizer: NONE
+        # Public confirmation endpoint (no auth required)
+        ConfirmEndpoint:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGatewayApi
+            Path: /users/confirm
+            Method: POST
+            Auth:
+              Authorizer: NONE
+        # Health check endpoint (no auth required)
         HealthCheck:
           Type: Api
           Properties:
             RestApiId: !Ref ApiGatewayApi
             Path: /health
             Method: GET
+            Auth:
+              Authorizer: NONE
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref UsersTable
       Environment:
         Variables:
           USERS_TABLE_NAME: !Ref UsersTable
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPool
+          COGNITO_CLIENT_ID: !Ref CognitoUserPoolClient
     Metadata:
       BuildMethod: makefile
 

@@ -29,6 +29,12 @@ async function generateEnvFile(env: string): Promise<void> {
     const audioFilesBucketName = outputs.find(
       (output: any) => output.OutputKey === 'AudioFilesBucketName'
     )?.OutputValue;
+    const cognitoUserPoolId = outputs.find(
+      (output: any) => output.OutputKey === 'CognitoUserPoolId'
+    )?.OutputValue;
+    const cognitoUserPoolClientId = outputs.find(
+      (output: any) => output.OutputKey === 'CognitoUserPoolClientId'
+    )?.OutputValue;
 
     if (!apiEndpoint || !usersTableName) {
       throw new Error('Required stack outputs not found: ApiEndpoint and UsersTableName are mandatory');
@@ -47,6 +53,8 @@ WORDS_TABLE_NAME=${fallbackWordsTableName}
 TRANSCRIPTIONS_TABLE_NAME=${fallbackTranscriptionsTableName}
 USER_PROGRESS_TABLE_NAME=${fallbackUserProgressTableName}
 STORAGE_BUCKET_NAME=${fallbackAudioFilesBucketName}
+COGNITO_USER_POOL_ID=${cognitoUserPoolId || ''}
+COGNITO_CLIENT_ID=${cognitoUserPoolClientId || ''}
 AWS_REGION=us-east-1
 NODE_ENV=${env}
 `;
