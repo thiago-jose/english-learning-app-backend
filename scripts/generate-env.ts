@@ -13,21 +13,21 @@ async function generateEnvFile(env: string): Promise<void> {
     const outputs = stack?.Outputs || [];
 
     // Extract required values
-    const apiEndpoint = outputs.find((output) => output.OutputKey === 'ApiEndpoint')?.OutputValue;
+    const apiEndpoint = outputs.find((output: any) => output.OutputKey === 'ApiEndpoint')?.OutputValue;
     const usersTableName = outputs.find(
-      (output) => output.OutputKey === 'UsersTableName'
+      (output: any) => output.OutputKey === 'UsersTableName'
     )?.OutputValue;
     const wordsTableName = outputs.find(
-      (output) => output.OutputKey === 'WordsTableName'
+      (output: any) => output.OutputKey === 'WordsTableName'
     )?.OutputValue;
     const transcriptionsTableName = outputs.find(
-      (output) => output.OutputKey === 'TranscriptionsTableName'
+      (output: any) => output.OutputKey === 'TranscriptionsTableName'
     )?.OutputValue;
     const userProgressTableName = outputs.find(
-      (output) => output.OutputKey === 'UserProgressTableName'
+      (output: any) => output.OutputKey === 'UserProgressTableName'
     )?.OutputValue;
     const audioFilesBucketName = outputs.find(
-      (output) => output.OutputKey === 'AudioFilesBucketName'
+      (output: any) => output.OutputKey === 'AudioFilesBucketName'
     )?.OutputValue;
 
     if (!apiEndpoint || !usersTableName) {

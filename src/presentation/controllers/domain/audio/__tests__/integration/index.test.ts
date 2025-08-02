@@ -1,5 +1,9 @@
 import axios from 'axios';
 import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import * as dotenv from 'dotenv';
+
+// Load environment variables from .env file
+dotenv.config();
 
 // Type definitions for API responses
 interface UploadUrlResponse {
@@ -33,7 +37,7 @@ const asDelete = (data: unknown) => data as DeleteResponse;
 
 // Real integration tests - testing the full API Gateway → Lambda workflow
 describe('Audio Controller API Integration Tests', () => {
-  const apiEndpoint = process.env.API_ENDPOINT || 'https://tzbc0ivajg.execute-api.us-east-1.amazonaws.com/dev/';
+  const apiEndpoint = process.env.API_ENDPOINT || 'https://qc72vo0ce9.execute-api.us-east-1.amazonaws.com/dev/';
   const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
   const bucketName = process.env.STORAGE_BUCKET_NAME || 'dev-english-learning-audio-files';
   
