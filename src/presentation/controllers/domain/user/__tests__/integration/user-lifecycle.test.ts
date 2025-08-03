@@ -73,7 +73,11 @@ class CognitoTestHelper {
   }
 
   // Create a test user with admin privileges (bypassing email verification)
-  async createTestUser(email: string, password: string, name: string): Promise<UserType | undefined> {
+  async createTestUser(
+    email: string,
+    password: string,
+    name: string
+  ): Promise<UserType | undefined> {
     const createUserCommand = new AdminCreateUserCommand({
       UserPoolId: this.userPoolId,
       Username: email,
@@ -90,7 +94,7 @@ class CognitoTestHelper {
 
     if (ret.$metadata?.httpStatusCode !== 200) {
       throw new Error(`Failed to create test user: ${ret.$metadata?.httpStatusCode}`);
-    }    
+    }
 
     // Set permanent password
     const setPasswordCommand = new AdminSetUserPasswordCommand({
@@ -105,7 +109,7 @@ class CognitoTestHelper {
       throw new Error(`Failed to set password for test user: ${ret2.$metadata?.httpStatusCode}`);
     }
 
-    return ret.User
+    return ret.User;
   }
 
   // Sign in and get JWT tokens using Admin flow (requires admin permissions)
@@ -276,57 +280,47 @@ describe('User Lifecycle Integration Tests', () => {
   // });
 
   describe('Test user creation via Cognito Admin functions', () => {
-
     it('should create test user via Cognito admin API', async () => {
       const user = await cognitoHelper.createTestUser(
         testUserEmail,
         testUserPassword,
         testUserName
-      );    
+      );
 
-      expect(user?.Attributes?.find(attr => attr.Name === 'email')?.Value).toBe(testUserEmail);
-      expect(user?.Attributes?.find(attr => attr.Name === 'name')?.Value).toBe(testUserName);
+      expect(user?.Attributes?.find((attr) => attr.Name === 'email')?.Value).toBe(testUserEmail);
+      expect(user?.Attributes?.find((attr) => attr.Name === 'name')?.Value).toBe(testUserName);
 
       await cognitoHelper.deleteTestUser(testUserEmail);
     });
 
     it('should authenticate user and get JWT tokens', async () => {
-        await cognitoHelper.createTestUser(
-          testUserEmail,
-          testUserPassword,
-          testUserName
-        );
+      await cognitoHelper.createTestUser(testUserEmail, testUserPassword, testUserName);
 
-        testUserTokens = await cognitoHelper.signInUser(testUserEmail, testUserPassword);
+      testUserTokens = await cognitoHelper.signInUser(testUserEmail, testUserPassword);
 
-        expect(testUserTokens.idToken).toBeDefined();
-        expect(testUserTokens.accessToken).toBeDefined();
-        expect(testUserTokens.refreshToken).toBeDefined();
+      expect(testUserTokens.idToken).toBeDefined();
+      expect(testUserTokens.accessToken).toBeDefined();
+      expect(testUserTokens.refreshToken).toBeDefined();
 
-        // Verify ID token structure (JWT format)
-        expect(testUserTokens.idToken.split('.')).toHaveLength(3);
+      // Verify ID token structure (JWT format)
+      expect(testUserTokens.idToken.split('.')).toHaveLength(3);
 
-        await cognitoHelper.deleteTestUser(testUserEmail);
+      await cognitoHelper.deleteTestUser(testUserEmail);
     });
   });
-  
+
   describe('Remaining User Lifecycle (Direct Cognito + API)', () => {
-    
     beforeAll(async () => {
-      await cognitoHelper.createTestUser(
-        testUserEmail,
-        testUserPassword,
-        testUserName
-      );
-      
+      await cognitoHelper.createTestUser(testUserEmail, testUserPassword, testUserName);
+
       testUserTokens = await cognitoHelper.signInUser(testUserEmail, testUserPassword);
     });
 
     afterAll(async () => {
       // Clean up test user
       await cognitoHelper.deleteTestUser(testUserEmail);
-    });    
-    
+    });
+
     it('should create user profile via authenticated API', async () => {
       const response = await apiHelper.makeRequest(
         'POST',
@@ -385,7 +379,7 @@ describe('User Lifecycle Integration Tests', () => {
           oldPassword: testUserPassword,
           newPassword: newPassword,
         },
-        testUserTokens.accessToken // Note: requires access token, not ID token
+        testUserTokens.idToken // Using ID token with JWT authorizer
       );
 
       expect(response.status).toBe(200);
@@ -407,7 +401,7 @@ describe('User Lifecycle Integration Tests', () => {
         'DELETE',
         `users/${userId}/account`,
         null,
-        testUserTokens.accessToken // Note: requires access token, not ID token
+        testUserTokens.idToken // Using ID token with JWT authorizer
       );
 
       expect(response.status).toBe(200);
@@ -418,7 +412,7 @@ describe('User Lifecycle Integration Tests', () => {
     it('should fail to access API after account deletion', async () => {
       try {
         const response = await apiHelper.makeRequest('GET', 'users', null, testUserTokens.idToken);
-        
+
         // If no error is thrown, check if we got an error response
         if (response.status === 200) {
           fail('Expected request to fail after account deletion, but got successful response');

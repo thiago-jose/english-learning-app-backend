@@ -8,17 +8,14 @@ import {
   CognitoIdentityProviderClient,
   SignUpCommand,
   ConfirmSignUpCommand,
-  DeleteUserCommand,
-  ChangePasswordCommand,
+  AdminSetUserPasswordCommand,
+  AdminInitiateAuthCommand,
+  AuthFlowType,
+  AdminDeleteUserCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { operations } from '../../../../types/api';
 
 // Type definitions from OpenAPI schema
-type CreateUserRequest = operations['createUserProfile']['requestBody'] extends {
-  content: { 'application/json': infer T };
-}
-  ? T
-  : never;
 type UserResponse =
   operations['createUserProfile']['responses']['201']['content']['application/json'];
 type UpdateUserRequest = operations['updateUser']['requestBody']['content']['application/json'];
@@ -64,7 +61,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     // Route based on path and method instead of proxy parameters
     const path = event.path;
     const method = event.httpMethod;
-    
+
     // Debug logging for delete account requests
     if (path.includes('account') && method === 'DELETE') {
       console.log('DELETE account request received:', {
@@ -72,7 +69,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
         method,
         pathParameters: event.pathParameters,
         headers: Object.keys(event.headers || {}),
-        hasAuthHeader: !!event.headers?.Authorization || !!event.headers?.authorization
+        hasAuthHeader: !!event.headers?.Authorization || !!event.headers?.authorization,
       });
     }
 
@@ -121,7 +118,12 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     // User individual endpoints with path parameters (check these AFTER special endpoints)
-    if (path.startsWith('/users/') && event.pathParameters?.userId && !path.includes('/account') && !path.includes('/change-password')) {
+    if (
+      path.startsWith('/users/') &&
+      event.pathParameters?.userId &&
+      !path.includes('/account') &&
+      !path.includes('/change-password')
+    ) {
       const userId = event.pathParameters.userId;
       if (method === 'GET') {
         return await handleGetUserById(event, userId);
@@ -337,51 +339,22 @@ async function handleConfirmSignUp(event: APIGatewayProxyEvent): Promise<APIGate
   }
 }
 
-async function handleChangePassword(event: APIGatewayProxyEvent, requestedUserId: string): Promise<APIGatewayProxyResult> {
+async function handleChangePassword(
+  event: APIGatewayProxyEvent,
+  requestedUserId: string
+): Promise<APIGatewayProxyResult> {
   try {
-    // Since this endpoint has Auth: NONE, we need to validate the access token manually
-    const accessToken = event.headers.Authorization?.replace('Bearer ', '') || 
-                        event.headers.authorization?.replace('Bearer ', '');
+    // Use JWT authorizer context to get authenticated user
+    const authenticatedUser = getAuthenticatedUser(event);
 
-    if (!accessToken) {
+    // Verify the user can only change their own password
+    if (authenticatedUser.userId !== requestedUserId) {
       return {
-        statusCode: 401,
+        statusCode: 403,
         headers,
-        body: JSON.stringify({ error: 'Access token required for password change' }),
-      };
-    }
-
-    // Validate that the user can only change their own password
-    try {
-      const tokenParts = accessToken.split('.');
-      if (tokenParts.length !== 3) {
-        throw new Error('Invalid JWT format');
-      }
-      
-      const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
-      const tokenUserId = payload.sub;
-      
-      // Debug logging
-      console.log('Change password - Requested User ID:', requestedUserId);
-      console.log('Change password - Access Token User ID:', tokenUserId);
-      console.log('Change password - Access Token Payload:', JSON.stringify(payload, null, 2));
-      
-      if (!tokenUserId || tokenUserId !== requestedUserId) {
-        return {
-          statusCode: 403,
-          headers,
-          body: JSON.stringify({ 
-            error: 'Access denied. You can only change your own password.',
-            debug: { requestedUserId, tokenUserId } 
-          }),
-        };
-      }
-    } catch (decodeError) {
-      console.log('Change password - Token decode error:', decodeError);
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ error: 'Invalid access token format' }),
+        body: JSON.stringify({
+          error: 'Access denied. You can only change your own password.',
+        }),
       };
     }
 
@@ -404,14 +377,39 @@ async function handleChangePassword(event: APIGatewayProxyEvent, requestedUserId
       };
     }
 
-    // The Cognito ChangePassword operation validates the access token internally
-    const changePasswordCommand = new ChangePasswordCommand({
-      AccessToken: accessToken,
-      PreviousPassword: oldPassword,
-      ProposedPassword: newPassword,
+    // Validate old password by attempting authentication
+    try {
+      const authCommand = new AdminInitiateAuthCommand({
+        UserPoolId: process.env.COGNITO_USER_POOL_ID!,
+        ClientId: process.env.COGNITO_CLIENT_ID!,
+        AuthFlow: AuthFlowType.ADMIN_NO_SRP_AUTH,
+        AuthParameters: {
+          USERNAME: authenticatedUser.email,
+          PASSWORD: oldPassword,
+        },
+      });
+
+      await cognitoClient.send(authCommand);
+    } catch (authError: any) {
+      if (authError.name === 'NotAuthorizedException') {
+        return {
+          statusCode: 401,
+          headers,
+          body: JSON.stringify({ error: 'Current password is incorrect' }),
+        };
+      }
+      throw authError;
+    }
+
+    // Set new password using Admin API
+    const setPasswordCommand = new AdminSetUserPasswordCommand({
+      UserPoolId: process.env.COGNITO_USER_POOL_ID!,
+      Username: authenticatedUser.email,
+      Password: newPassword,
+      Permanent: true,
     });
 
-    await cognitoClient.send(changePasswordCommand);
+    await cognitoClient.send(setPasswordCommand);
 
     const response: MessageResponse = {
       message: 'Password changed successfully',
@@ -424,14 +422,6 @@ async function handleChangePassword(event: APIGatewayProxyEvent, requestedUserId
     };
   } catch (error: any) {
     console.error('Error in changePassword:', error);
-
-    if (error.name === 'NotAuthorizedException') {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ error: 'Current password is incorrect or invalid access token' }),
-      };
-    }
 
     if (error.name === 'InvalidPasswordException') {
       return {
@@ -454,84 +444,37 @@ async function handleDeleteUserAccount(
   requestedUserId: string
 ): Promise<APIGatewayProxyResult> {
   try {
-    // Debug: log all headers to understand the structure
-    console.log('Delete account - All headers:', JSON.stringify(event.headers, null, 2));
-    
-    // Since this endpoint has Auth: NONE, we need to validate the access token manually
-    const accessToken = event.headers.Authorization?.replace('Bearer ', '') || 
-                        event.headers.authorization?.replace('Bearer ', '');
+    // Use JWT authorizer context to get authenticated user
+    const authenticatedUser = getAuthenticatedUser(event);
 
-    console.log('Delete account - Extracted access token:', accessToken ? 'Present' : 'Missing');
-
-    if (!accessToken) {
+    // Verify the user can only delete their own account
+    if (authenticatedUser.userId !== requestedUserId) {
       return {
-        statusCode: 401,
+        statusCode: 403,
         headers,
-        body: JSON.stringify({ error: 'Access token required for account deletion' }),
+        body: JSON.stringify({
+          error: 'Access denied. You can only delete your own account.',
+        }),
       };
     }
 
-    // Validate that the user can only delete their own account
-    let tokenUserId: string;
-    try {
-      const tokenParts = accessToken.split('.');
-      if (tokenParts.length !== 3) {
-        throw new Error('Invalid JWT format');
-      }
-      
-      const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
-      tokenUserId = payload.sub;
-      
-      // Debug logging
-      console.log('Delete account - Requested User ID:', requestedUserId);
-      console.log('Delete account - Access Token User ID:', tokenUserId);
-      console.log('Delete account - Access Token Payload:', JSON.stringify(payload, null, 2));
-      
-      if (!tokenUserId || tokenUserId !== requestedUserId) {
-        return {
-          statusCode: 403,
-          headers,
-          body: JSON.stringify({ 
-            error: 'Access denied. You can only delete your own account.',
-            debug: { requestedUserId, tokenUserId }
-          }),
-        };
-      }
-    } catch (decodeError) {
-      console.log('Delete account - Token decode error:', decodeError);
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ error: 'Invalid access token format' }),
-      };
-    }
-
-    // Delete from Cognito User Pool (this validates the access token)
-    const deleteUserCommand = new DeleteUserCommand({
-      AccessToken: accessToken,
+    // Delete from Cognito User Pool using Admin API
+    const deleteUserCommand = new AdminDeleteUserCommand({
+      UserPoolId: process.env.COGNITO_USER_POOL_ID!,
+      Username: authenticatedUser.email,
     });
 
     try {
-      console.log('Attempting to delete user from Cognito with access token...');
+      console.log('Attempting to delete user from Cognito...');
       await cognitoClient.send(deleteUserCommand);
       console.log('Successfully deleted user from Cognito');
     } catch (cognitoError: any) {
       console.error('Error deleting user from Cognito:', cognitoError);
-      
-      if (cognitoError.name === 'NotAuthorizedException') {
-        return {
-          statusCode: 401,
-          headers,
-          body: JSON.stringify({ error: 'Invalid or expired access token' }),
-        };
-      }
-      
-      // Re-throw other Cognito errors to be handled by outer catch
       throw cognitoError;
     }
 
-    // Also delete local user profile using the validated user ID
-    await userRepository.delete(tokenUserId);
+    // Also delete local user profile
+    await userRepository.delete(authenticatedUser.userId);
 
     const response: MessageResponse = {
       message: 'Account deleted successfully',
@@ -544,14 +487,6 @@ async function handleDeleteUserAccount(
     };
   } catch (error: any) {
     console.error('Error in deleteAccount:', error);
-
-    if (error.name === 'NotAuthorizedException') {
-      return {
-        statusCode: 401,
-        headers,
-        body: JSON.stringify({ error: 'Invalid access token' }),
-      };
-    }
 
     return {
       statusCode: 500,

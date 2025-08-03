@@ -279,16 +279,12 @@ Resources:
             RestApiId: !Ref ApiGatewayApi
             Path: /users/{userId}/change-password
             Method: POST
-            Auth:
-              Authorizer: NONE
         UserDeleteAccount:
           Type: Api
           Properties:
             RestApiId: !Ref ApiGatewayApi
             Path: /users/{userId}/account
             Method: DELETE
-            Auth:
-              Authorizer: NONE
         # Public signup endpoint (no auth required)
         SignupEndpoint:
           Type: Api
@@ -319,6 +315,13 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref UsersTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - cognito-idp:AdminInitiateAuth
+                - cognito-idp:AdminSetUserPassword
+                - cognito-idp:AdminDeleteUser
+              Resource: !GetAtt CognitoUserPool.Arn
       Environment:
         Variables:
           USERS_TABLE_NAME: !Ref UsersTable
