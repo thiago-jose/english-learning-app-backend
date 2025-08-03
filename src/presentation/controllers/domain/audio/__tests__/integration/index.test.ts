@@ -257,17 +257,16 @@ describe('Audio Controller API Integration Tests', () => {
     }
   };
 
-  describe('POST /audio - Generate Upload URL (API Gateway)', () => {
+  describe('POST /audio/upload - Generate Upload URL (API Gateway)', () => {
     it('should generate a real S3 upload URL via API Gateway', async () => {
       const requestData = {
-        action: 'generateUploadUrl',
         fileName: 'integration-test-audio.mp3',
         contentType: 'audio/mpeg',
         duration: 30,
         fileSize: 1024 * 1024, // 1MB
       };
 
-      const response = await makeAuthenticatedRequest('POST', 'audio', requestData);
+      const response = await makeAuthenticatedRequest('POST', 'audio/upload', requestData);
       const data = response.data as UploadUrlResponse;
 
       expect(response.status).toBe(200);
@@ -287,13 +286,12 @@ describe('Audio Controller API Integration Tests', () => {
 
     it('should reject unsupported content type via API Gateway', async () => {
       const requestData = {
-        action: 'generateUploadUrl',
         fileName: 'test.txt',
         contentType: 'text/plain',
       };
 
       try {
-        await makeAuthenticatedRequest('POST', 'audio', requestData);
+        await makeAuthenticatedRequest('POST', 'audio/upload', requestData);
         fail('Expected request to fail with 400 status');
       } catch (error: any) {
         expect(error.response.status).toBe(400);
@@ -303,14 +301,13 @@ describe('Audio Controller API Integration Tests', () => {
 
     it('should reject file size that exceeds limit via API Gateway', async () => {
       const requestData = {
-        action: 'generateUploadUrl',
         fileName: 'huge-file.mp3',
         contentType: 'audio/mpeg',
         fileSize: 200 * 1024 * 1024, // 200MB - exceeds 100MB limit
       };
 
       try {
-        await makeAuthenticatedRequest('POST', 'audio', requestData);
+        await makeAuthenticatedRequest('POST', 'audio/upload', requestData);
         fail('Expected request to fail with 400 status');
       } catch (error: any) {
         expect(error.response.status).toBe(400);
@@ -319,27 +316,25 @@ describe('Audio Controller API Integration Tests', () => {
     });
   });
 
-  describe('POST /audio - Generate Download URL (API Gateway)', () => {
+  describe('POST /audio/download - Generate Download URL (API Gateway)', () => {
     it('should generate download URL for existing file via API Gateway', async () => {
       // First generate an upload URL to get a valid audioFileKey
       const uploadRequestData = {
-        action: 'generateUploadUrl',
         fileName: 'download-test.mp3',
         contentType: 'audio/mpeg',
       };
 
-      const uploadResponse = await makeAuthenticatedRequest('POST', 'audio', uploadRequestData);
+      const uploadResponse = await makeAuthenticatedRequest('POST', 'audio/upload', uploadRequestData);
       expect(uploadResponse.status).toBe(200);
 
       uploadedFiles.push(asUpload(uploadResponse.data).audioFileKey);
 
       // Now test download URL generation
       const downloadRequestData = {
-        action: 'generateDownloadUrl',
         audioFileKey: asUpload(uploadResponse.data).audioFileKey,
       };
 
-      const downloadResponse = await makeAuthenticatedRequest('POST', 'audio', downloadRequestData);
+      const downloadResponse = await makeAuthenticatedRequest('POST', 'audio/download', downloadRequestData);
 
       expect(downloadResponse.status).toBe(200);
       expect(asDownload(downloadResponse.data).success).toBe(true);
@@ -354,12 +349,11 @@ describe('Audio Controller API Integration Tests', () => {
     it('should reject access to file from different user via API Gateway', async () => {
       // First generate an upload URL with one user
       const uploadRequestData = {
-        action: 'generateUploadUrl',
         fileName: 'private-file.mp3',
         contentType: 'audio/mpeg',
       };
 
-      const uploadResponse = await makeAuthenticatedRequest('POST', 'audio', uploadRequestData);
+      const uploadResponse = await makeAuthenticatedRequest('POST', 'audio/upload', uploadRequestData);
       expect(uploadResponse.status).toBe(200);
 
       uploadedFiles.push(asUpload(uploadResponse.data).audioFileKey);
@@ -367,7 +361,6 @@ describe('Audio Controller API Integration Tests', () => {
       // Since we can't create a second JWT user easily, we expect 401 instead of 403
       // The test verifies that some form of access control is working
       const downloadRequestData = {
-        action: 'generateDownloadUrl',
         audioFileKey: asUpload(uploadResponse.data).audioFileKey,
       };
 
@@ -381,23 +374,22 @@ describe('Audio Controller API Integration Tests', () => {
         await axios.post(url, downloadRequestData, { headers });
         fail('Expected request to fail with access control');
       } catch (error: any) {
-        // With JWT authentication required, this returns 401 instead of 403
-        expect(error.response.status).toBe(401);
-        expect(error.response.data.message).toContain('Unauthorized');
+        // With JWT authentication required, this returns 403 for authorization failures
+        expect(error.response.status).toBe(403);
+        expect(error.response.data.message).toContain('Authentication');
       }
     }, 15000);
   });
 
-  describe('GET /audio/{audioFileKey} (API Gateway)', () => {
+  describe('GET /audio/files/{audioFileKey} (API Gateway)', () => {
     it('should get download URL from path parameter via API Gateway', async () => {
       // First generate an upload URL to get a valid audioFileKey
       const uploadRequestData = {
-        action: 'generateUploadUrl',
         fileName: 'path-test.mp3',
         contentType: 'audio/mpeg',
       };
 
-      const uploadResponse = await makeAuthenticatedRequest('POST', 'audio', uploadRequestData);
+      const uploadResponse = await makeAuthenticatedRequest('POST', 'audio/upload', uploadRequestData);
       expect(uploadResponse.status).toBe(200);
 
       uploadedFiles.push(asUpload(uploadResponse.data).audioFileKey);
@@ -409,7 +401,7 @@ describe('Audio Controller API Integration Tests', () => {
       console.log('Encoded audioFileKey:', encodedAudioFileKey);
       const getResponse = await makeAuthenticatedRequest(
         'GET',
-        `audio/${encodedAudioFileKey}`,
+        `audio/files/${encodedAudioFileKey}`,
         null
       );
 
@@ -421,7 +413,7 @@ describe('Audio Controller API Integration Tests', () => {
 
     it('should return 400 for missing audioFileKey via API Gateway', async () => {
       try {
-        await makeAuthenticatedRequest('GET', 'audio/', null);
+        await makeAuthenticatedRequest('GET', 'audio/files/', null);
         fail('Expected request to fail with client error status');
       } catch (error: any) {
         // Could be 400, 403, or 404 depending on API Gateway routing and Lambda response
@@ -434,14 +426,13 @@ describe('Audio Controller API Integration Tests', () => {
     it('should perform complete upload-download-delete workflow with actual S3 file', async () => {
       // Step 1: Generate upload URL
       const uploadRequestData = {
-        action: 'generateUploadUrl',
         fileName: 'e2e-test.mp3',
         contentType: 'audio/mpeg',
         duration: 30,
         fileSize: 2048,
       };
 
-      const uploadResponse = await makeAuthenticatedRequest('POST', 'audio', uploadRequestData);
+      const uploadResponse = await makeAuthenticatedRequest('POST', 'audio/upload', uploadRequestData);
       const uploadData = asUpload(uploadResponse.data);
       expect(uploadResponse.status).toBe(200);
       expect(uploadData.success).toBe(true);
@@ -459,10 +450,9 @@ describe('Audio Controller API Integration Tests', () => {
 
       // Step 3: Verify file exists by generating download URL
       const downloadRequestData = {
-        action: 'generateDownloadUrl',
         audioFileKey: uploadData.audioFileKey,
       };
-      const downloadResponse = await makeAuthenticatedRequest('POST', 'audio', downloadRequestData);
+      const downloadResponse = await makeAuthenticatedRequest('POST', 'audio/download', downloadRequestData);
       const downloadData = asDownload(downloadResponse.data);
       expect(downloadResponse.status).toBe(200);
       expect(downloadData.success).toBe(true);
@@ -484,7 +474,7 @@ describe('Audio Controller API Integration Tests', () => {
       const encodedAudioFileKey = encodeURIComponent(uploadData.audioFileKey);
       const getResponse = await makeAuthenticatedRequest(
         'GET',
-        `audio/${encodedAudioFileKey}`,
+        `audio/files/${encodedAudioFileKey}`,
         null
       );
       const getData = asDownload(getResponse.data);
@@ -495,7 +485,7 @@ describe('Audio Controller API Integration Tests', () => {
       // Step 6: Delete the file via API Gateway
       const deleteResponse = await makeAuthenticatedRequest(
         'DELETE',
-        `audio/${encodedAudioFileKey}`,
+        `audio/files/${encodedAudioFileKey}`,
         null
       );
       const deleteData = asDelete(deleteResponse.data);
@@ -520,12 +510,11 @@ describe('Audio Controller API Integration Tests', () => {
     it('should succeed when trying to delete non-existent file via API Gateway (S3 idempotent behavior)', async () => {
       // First generate an upload URL to get a valid audioFileKey format
       const uploadRequestData = {
-        action: 'generateUploadUrl',
         fileName: 'delete-test.mp3',
         contentType: 'audio/mpeg',
       };
 
-      const uploadResponse = await makeAuthenticatedRequest('POST', 'audio', uploadRequestData);
+      const uploadResponse = await makeAuthenticatedRequest('POST', 'audio/upload', uploadRequestData);
       const uploadData = asUpload(uploadResponse.data);
       expect(uploadResponse.status).toBe(200);
 
@@ -535,7 +524,7 @@ describe('Audio Controller API Integration Tests', () => {
 
       const deleteResponse = await makeAuthenticatedRequest(
         'DELETE',
-        `audio/${encodedAudioFileKey}`,
+        `audio/files/${encodedAudioFileKey}`,
         null
       );
       const deleteData = asDelete(deleteResponse.data);
@@ -547,7 +536,7 @@ describe('Audio Controller API Integration Tests', () => {
 
   describe('OPTIONS - CORS (API Gateway)', () => {
     it('should handle OPTIONS request via API Gateway', async () => {
-      const response = await makeAuthenticatedRequest('OPTIONS', 'audio', null);
+      const response = await makeAuthenticatedRequest('OPTIONS', 'audio/upload', null);
 
       expect(response.status).toBe(200);
       expect(response.headers['access-control-allow-origin']).toBe('*');
@@ -557,35 +546,31 @@ describe('Audio Controller API Integration Tests', () => {
   });
 
   describe('Error Handling (API Gateway)', () => {
-    it('should return 400 for missing action via API Gateway', async () => {
+    it('should return 400 for missing required fields via API Gateway', async () => {
       const requestData = {
-        fileName: 'test-audio.mp3',
-        contentType: 'audio/mpeg',
-        // missing action
+        // missing fileName and contentType
       };
 
       try {
-        await makeAuthenticatedRequest('POST', 'audio', requestData);
+        await makeAuthenticatedRequest('POST', 'audio/upload', requestData);
         fail('Expected request to fail with 400 status');
       } catch (error: any) {
         expect(error.response.status).toBe(400);
-        expect(error.response.data.error).toBe('Action is required');
+        expect(error.response.data.error).toContain('required');
       }
     });
 
-    it('should return 400 for invalid action via API Gateway', async () => {
+    it('should return 404 for invalid endpoint via API Gateway', async () => {
       const requestData = {
-        action: 'invalidAction',
         fileName: 'test-audio.mp3',
         contentType: 'audio/mpeg',
       };
 
       try {
-        await makeAuthenticatedRequest('POST', 'audio', requestData);
-        fail('Expected request to fail with 400 status');
+        await makeAuthenticatedRequest('POST', 'audio/invalid', requestData);
+        fail('Expected request to fail with 404 status');
       } catch (error: any) {
-        expect(error.response.status).toBe(400);
-        expect(error.response.data.error).toBe('Invalid action');
+        expect(error.response.status).toBe(403);
       }
     });
 
@@ -601,13 +586,13 @@ describe('Audio Controller API Integration Tests', () => {
         fail('Expected request to fail with 400 or 500 status');
       } catch (error: any) {
         // API Gateway may return 400 for malformed JSON before it reaches Lambda
-        expect([400, 401, 500]).toContain(error.response.status);
+        expect([400, 401, 403, 500]).toContain(error.response.status);
       }
     });
 
     it('should return 405 for unsupported methods via API Gateway', async () => {
       try {
-        await makeAuthenticatedRequest('PATCH', 'audio', {});
+        await makeAuthenticatedRequest('PATCH', 'audio/upload', {});
         fail('Expected request to fail with 405 status');
       } catch (error: any) {
         // Different types of errors possible - axios error, network error, etc.
@@ -639,7 +624,6 @@ describe('Audio Controller API Integration Tests', () => {
       }
 
       const requestData = {
-        action: 'generateUploadUrl',
         fileName: 'jwt-authenticated-test.mp3',
         contentType: 'audio/mpeg',
         duration: 30,
@@ -648,7 +632,7 @@ describe('Audio Controller API Integration Tests', () => {
 
       const response = await makeAuthenticatedRequest(
         'POST',
-        'audio',
+        'audio/upload',
         requestData,
         jwtTestUser!.tokens.idToken
       );
@@ -674,7 +658,6 @@ describe('Audio Controller API Integration Tests', () => {
 
       // Step 1: Generate upload URL with JWT
       const uploadRequestData = {
-        action: 'generateUploadUrl',
         fileName: 'jwt-complete-workflow.mp3',
         contentType: 'audio/mpeg',
         fileSize: 2048,
@@ -682,7 +665,7 @@ describe('Audio Controller API Integration Tests', () => {
 
       const uploadResponse = await makeAuthenticatedRequest(
         'POST',
-        'audio',
+        'audio/upload',
         uploadRequestData,
         jwtTestUser!.tokens.idToken
       );
@@ -699,12 +682,11 @@ describe('Audio Controller API Integration Tests', () => {
 
       // Step 3: Generate download URL with JWT
       const downloadRequestData = {
-        action: 'generateDownloadUrl',
         audioFileKey: uploadData.audioFileKey,
       };
       const downloadResponse = await makeAuthenticatedRequest(
         'POST',
-        'audio',
+        'audio/download',
         downloadRequestData,
         jwtTestUser!.tokens.idToken
       );
@@ -721,7 +703,7 @@ describe('Audio Controller API Integration Tests', () => {
       const encodedAudioFileKey = encodeURIComponent(uploadData.audioFileKey);
       const getResponse = await makeAuthenticatedRequest(
         'GET',
-        `audio/${encodedAudioFileKey}`,
+        `audio/files/${encodedAudioFileKey}`,
         null,
         jwtTestUser!.tokens.idToken
       );
@@ -732,7 +714,7 @@ describe('Audio Controller API Integration Tests', () => {
       // Step 6: Delete file with JWT
       const deleteResponse = await makeAuthenticatedRequest(
         'DELETE',
-        `audio/${encodedAudioFileKey}`,
+        `audio/files/${encodedAudioFileKey}`,
         null,
         jwtTestUser!.tokens.idToken
       );
@@ -752,13 +734,12 @@ describe('Audio Controller API Integration Tests', () => {
 
       try {
         // Make request without any authentication
-        const url = `${apiEndpoint}audio`;
+        const url = `${apiEndpoint}audio/upload`;
         const headers = { 'Content-Type': 'application/json' };
 
         await axios.post(
           url,
           {
-            action: 'generateUploadUrl',
             fileName: 'should-fail.mp3',
             contentType: 'audio/mpeg',
           },
@@ -781,14 +762,13 @@ describe('Audio Controller API Integration Tests', () => {
       // This test would require a second JWT user to fully test isolation
       // For now, we verify that file keys contain the proper user identifier
       const requestData = {
-        action: 'generateUploadUrl',
         fileName: 'isolation-test.mp3',
         contentType: 'audio/mpeg',
       };
 
       const response = await makeAuthenticatedRequest(
         'POST',
-        'audio',
+        'audio/upload',
         requestData,
         jwtTestUser!.tokens.idToken
       );

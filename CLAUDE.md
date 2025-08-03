@@ -74,15 +74,48 @@ English learning application backend built with AWS SAM, TypeScript, Node.js, Dy
   - **Audio API Integration**: JWT-authenticated audio upload/download workflows
 - **Status**: ✅ 8/15 tests passing (core functionality working, minor assertion fixes needed)
 
+### ID Token Only Strategy (✅ IMPLEMENTED)
+- **Token Strategy**: **ID tokens only** - all endpoints use API Gateway JWT authorizer
+- **No Access Tokens**: Access tokens are not used by any API endpoints
+- **Consistent Authentication**: All protected endpoints use the same JWT authorizer pattern
+- **Client Simplification**: Client only needs to manage one token type (ID token)
+
 ### Current Authentication Flow
-1. Frontend sends JWT token in `Authorization: Bearer <token>` header
-2. API Gateway validates JWT against Cognito User Pool (when deployed)
+1. Frontend sends **ID token** in `Authorization: Bearer <idToken>` header
+2. API Gateway validates JWT against Cognito User Pool (✅ deployed and configured)
 3. API Gateway passes validated claims to Lambda via `event.requestContext.authorizer.claims`
-4. Lambda extracts user info using authentication utilities
+4. Lambda extracts user info using `getAuthenticatedUser(event)` utility
 5. Lambda enforces user-specific access controls
+
+### Special Endpoint Implementation
+- **Password Change** (`/users/{id}/change-password`):
+  - Uses JWT authorizer (ID token) for authentication
+  - Validates old password via `AdminInitiateAuthCommand`
+  - Sets new password via `AdminSetUserPasswordCommand`
+  - Requires `cognito-idp:AdminInitiateAuth` and `cognito-idp:AdminSetUserPassword` permissions
+
+- **Account Deletion** (`/users/{id}/account`):
+  - Uses JWT authorizer (ID token) for authentication  
+  - Deletes user via `AdminDeleteUserCommand`
+  - Requires `cognito-idp:AdminDeleteUser` permissions
+
+### Lambda IAM Permissions
+- **DynamoDB**: `DynamoDBCrudPolicy` for user profile data
+- **Cognito Admin APIs**: 
+  - `cognito-idp:AdminInitiateAuth` (password validation)
+  - `cognito-idp:AdminSetUserPassword` (password changes)
+  - `cognito-idp:AdminDeleteUser` (account deletion)
 
 ### Security Features Implemented
 - **User Resource Isolation**: Users can only access/modify their own data
 - **Provider Tracking**: Track authentication provider (email/password, Google, Facebook)
+- **Centralized Authentication**: All endpoints use API Gateway JWT authorizer
+- **Server-Side Validation**: Password changes validated server-side with Admin APIs
 - **Comprehensive Error Handling**: Proper 401/403 responses for auth failures
 - **CORS Support**: Configured for cross-origin requests with authorization headers
+
+### ⚠️ IMPORTANT: Token Usage Guidelines
+- **NEVER use access tokens in API endpoints** - all endpoints must use ID tokens
+- **NEVER add `Auth: NONE` to user-specific endpoints** - always use JWT authorizer
+- **Client applications should only store and use ID tokens** for API requests
+- **Integration tests must use `idToken` for all authenticated requests**
