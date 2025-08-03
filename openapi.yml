@@ -358,11 +358,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /users/change-password:
+  /users/{userId}/change-password:
     post:
       operationId: changePassword
       summary: Change user password
       tags: [Users]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User UUID
       requestBody:
         required: true
         content:
@@ -388,12 +395,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - can only change own password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
-  /users/account:
+  /users/{userId}/account:
     delete:
       operationId: deleteUserAccount
       summary: Delete user account (Cognito + local profile)
       tags: [Users]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User UUID
       responses:
         '200':
           description: Account deleted successfully
@@ -403,6 +423,12 @@ paths:
                 $ref: '#/components/schemas/MessageResponse'
         '401':
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - can only delete own account
           content:
             application/json:
               schema:

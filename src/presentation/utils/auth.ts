@@ -76,12 +76,33 @@ export function getUserId(event: APIGatewayProxyEvent): string {
 }
 
 /**
+ * Extract user ID from JWT token (works with both ID tokens and access tokens)
+ * Access tokens have 'sub' claim but may not have other user profile claims
+ */
+export function getUserIdFromToken(event: APIGatewayProxyEvent): string {
+  const claims = event.requestContext?.authorizer?.claims;
+
+  if (!claims) {
+    throw new Error(
+      'No authorization claims found. Ensure API Gateway JWT authorizer is configured.'
+    );
+  }
+
+  const userId = claims.sub;
+  if (!userId) {
+    throw new Error('User ID (sub claim) not found in JWT token.');
+  }
+
+  return userId;
+}
+
+/**
  * Development/testing helper - allows test headers for integration tests
  * Remove this in production or add feature flag
  */
 export function getUserIdWithFallback(event: APIGatewayProxyEvent): string {
   try {
-    return getUserId(event);
+    return getUserIdFromToken(event);
   } catch (error) {
     // Fallback to test headers for integration tests
     const testUserId = event.headers?.['X-Test-User-Id'] || event.headers?.['x-test-user-id'];
