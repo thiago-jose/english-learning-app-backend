@@ -1,32 +1,87 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { AudioStorageService } from '../../../../infrastructure/services/AudioStorageService';
-import { UploadAudioUseCase } from '../../../../application/use-cases/UploadAudioUseCase';
-import { getAuthenticatedUser, getUserIdWithFallback } from '../../../utils/auth';
-import { operations } from '../../../../types/api';
+import { DynamoDBAudioRepository } from '../../../../infrastructure/repositories/DynamoDBAudioRepository';
+import { AudioMapper } from '../../../../infrastructure/mappers/AudioMapper';
+import { AudioService } from '../../../../application/services/AudioService';
+import { getAuthenticatedUser } from '../../../utils/auth';
 
-// Type definitions from OpenAPI schema
-type GenerateUploadUrlRequest =
-  operations['generateUploadUrl']['requestBody']['content']['application/json'];
-type GenerateUploadUrlResponse =
-  operations['generateUploadUrl']['responses']['200']['content']['application/json'];
-type GenerateDownloadUrlRequest =
-  operations['generateDownloadUrl']['requestBody']['content']['application/json'];
-type GenerateDownloadUrlResponse =
-  operations['generateDownloadUrl']['responses']['200']['content']['application/json'];
-type GetMetadataRequest =
-  operations['getAudioMetadata']['requestBody']['content']['application/json'];
-type MetadataResponse =
-  operations['getAudioMetadata']['responses']['200']['content']['application/json'];
-type GetAudioFileUrlResponse =
-  operations['getAudioFileUrl']['responses']['200']['content']['application/json'];
-type DeleteAudioFileResponse =
-  operations['deleteAudioFile']['responses']['200']['content']['application/json'];
+// Request/Response types for user-scoped endpoints
+interface CreateAudioRequest {
+  fileName: string;
+  contentType: string;
+  fileSize?: number;
+  duration?: number;
+}
 
+interface CreateAudioResponse {
+  success: boolean;
+  audioId: string;
+  uploadUrl: string;
+  expiresIn: number;
+}
+
+interface ListAudioResponse {
+  success: boolean;
+  audioFiles: Array<{
+    id: string;
+    fileName: string;
+    contentType: string;
+    fileSize: number;
+    duration?: number;
+    status: string;
+    uploadedAt: string;
+    processedAt?: string;
+    transcriptionId?: string;
+    processingError?: string;
+  }>;
+  lastEvaluatedKey?: string;
+  totalCount: number;
+}
+
+interface GetAudioResponse {
+  success: boolean;
+  audio: {
+    id: string;
+    fileName: string;
+    contentType: string;
+    fileSize: number;
+    duration?: number;
+    status: string;
+    uploadedAt: string;
+    processedAt?: string;
+    transcriptionId?: string;
+    processingError?: string;
+  };
+  downloadUrl: string;
+  expiresIn: number;
+}
+
+interface DeleteAudioResponse {
+  success: boolean;
+  message: string;
+}
+
+interface ProcessAudioResponse {
+  success: boolean;
+  message: string;
+  transcriptionId: string;
+  status: string;
+}
+
+// Initialize services and repositories
 const audioStorageService = new AudioStorageService(
   process.env.STORAGE_BUCKET_NAME || 'english-learning-app-storage',
   process.env.AWS_REGION || 'us-east-1'
 );
-const uploadAudioUseCase = new UploadAudioUseCase(audioStorageService);
+
+const audioMapper = new AudioMapper();
+const audioRepository = new DynamoDBAudioRepository(
+  process.env.AUDIO_TABLE_NAME || 'dev-audio',
+  audioMapper
+);
+
+// Initialize audio service
+const audioService = new AudioService(audioRepository, audioStorageService);
 
 const headers = {
   'Access-Control-Allow-Origin': '*',
@@ -47,36 +102,39 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
   try {
     // Extract authenticated user information from Cognito JWT claims
-    // Falls back to test headers for integration tests during transition
-    let userId: string;
-    let authenticatedUser: any = null;
+    const authenticatedUser = getAuthenticatedUser(event);
+    const userId = authenticatedUser.userId;
+    
+    console.log(
+      `Authenticated user: ${authenticatedUser.name} (${authenticatedUser.email}) via ${authenticatedUser.provider}`
+    );
 
-    try {
-      authenticatedUser = getAuthenticatedUser(event);
-      userId = authenticatedUser.userId;
-      console.log(
-        `Authenticated user: ${authenticatedUser.name} (${authenticatedUser.email}) via ${authenticatedUser.provider}`
-      );
-    } catch (authError) {
-      // Temporary fallback during deployment transition
-      userId = getUserIdWithFallback(event);
-      console.warn('Using fallback user ID extraction:', userId);
-    }
-
-    // Route based on path and method instead of action parameter
+    // Extract path parameters
+    const pathUserId = event.pathParameters?.userId;
+    const audioId = event.pathParameters?.audioId;
     const path = event.path;
     const method = event.httpMethod;
 
-    if (path === '/audio/upload' && method === 'POST') {
-      return await handleGenerateUploadUrl(event, userId);
-    } else if (path === '/audio/download' && method === 'POST') {
-      return await handleGenerateDownloadUrl(event, userId);
-    } else if (path === '/audio/metadata' && method === 'POST') {
-      return await handleGetMetadata(event, userId);
-    } else if (path.startsWith('/audio/files/') && method === 'GET') {
-      return await handleGetAudioUrl(event, userId);
-    } else if (path.startsWith('/audio/files/') && method === 'DELETE') {
-      return await handleDeleteAudio(event, userId);
+    // Validate user access - ensure path userId matches authenticated user
+    if (pathUserId && pathUserId !== userId) {
+      return {
+        statusCode: 403,
+        headers,
+        body: JSON.stringify({ error: 'Access denied: Cannot access another user\'s resources' }),
+      };
+    }
+
+    // Route to user-scoped endpoints
+    if (path.match(/^\/users\/[^\/]+\/audio\/upload$/) && method === 'POST') {
+      return await handleUserAudioUpload(event, userId);
+    } else if (path.match(/^\/users\/[^\/]+\/audio$/) && method === 'GET') {
+      return await handleUserAudioList(event, userId);
+    } else if (path.match(/^\/users\/[^\/]+\/audio\/[^\/]+$/) && method === 'GET') {
+      return await handleUserAudioGet(event, userId, audioId!);
+    } else if (path.match(/^\/users\/[^\/]+\/audio\/[^\/]+$/) && method === 'DELETE') {
+      return await handleUserAudioDelete(event, userId, audioId!);
+    } else if (path.match(/^\/users\/[^\/]+\/audio\/[^\/]+\/process$/) && method === 'POST') {
+      return await handleUserAudioProcess(event, userId, audioId!);
     } else {
       return {
         statusCode: 404,
@@ -97,7 +155,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   }
 };
 
-async function handleGenerateUploadUrl(event: any, userId: string): Promise<any> {
+// User-scoped endpoint handlers
+async function handleUserAudioUpload(event: any, userId: string): Promise<any> {
   if (!event.body) {
     return {
       statusCode: 400,
@@ -106,136 +165,68 @@ async function handleGenerateUploadUrl(event: any, userId: string): Promise<any>
     };
   }
 
-  const requestBody: GenerateUploadUrlRequest = JSON.parse(event.body);
-  const { fileName, contentType, duration, fileSize } = requestBody;
-
-  if (!fileName || !contentType) {
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({ error: 'fileName and contentType are required' }),
-    };
-  }
-
   try {
-    const result = await uploadAudioUseCase.generateUploadUrl({
-      fileName,
-      contentType,
-      userId,
-      duration,
-      fileSize,
-    });
+    const requestBody: CreateAudioRequest = JSON.parse(event.body);
+    const { fileName, contentType, duration, fileSize } = requestBody;
 
-    const response: GenerateUploadUrlResponse = {
-      success: true,
-      ...result,
-    };
-
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify(response),
-    };
-  } catch (error) {
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({
-        error: error instanceof Error ? error.message : 'Failed to generate upload URL',
-      }),
-    };
-  }
-}
-
-async function handleGenerateDownloadUrl(event: any, userId: string): Promise<any> {
-  if (!event.body) {
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({ error: 'Request body is required' }),
-    };
-  }
-
-  const requestBody: GenerateDownloadUrlRequest = JSON.parse(event.body);
-  const { audioFileKey } = requestBody;
-
-  if (!audioFileKey) {
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({ error: 'audioFileKey is required' }),
-    };
-  }
-
-  try {
-    const result = await audioStorageService.generateDownloadUrl({
-      audioFileKey,
-      userId,
-    });
-
-    const response: GenerateDownloadUrlResponse = {
-      success: true,
-      ...result,
-    };
-
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify(response),
-    };
-  } catch (error) {
-    return {
-      statusCode: 403,
-      headers,
-      body: JSON.stringify({
-        error: error instanceof Error ? error.message : 'Failed to generate download URL',
-      }),
-    };
-  }
-}
-
-async function handleGetMetadata(event: any, userId: string): Promise<any> {
-  if (!event.body) {
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({ error: 'Request body is required' }),
-    };
-  }
-
-  const requestBody: GetMetadataRequest = JSON.parse(event.body);
-  const { audioFileKey } = requestBody;
-
-  if (!audioFileKey) {
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({ error: 'audioFileKey is required' }),
-    };
-  }
-
-  try {
-    const rawMetadata = await audioStorageService.getAudioFileMetadata(audioFileKey, userId);
-
-    if (!rawMetadata) {
+    if (!fileName || !contentType) {
       return {
-        statusCode: 404,
+        statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'Audio file metadata not found' }),
+        body: JSON.stringify({ error: 'fileName and contentType are required' }),
       };
     }
 
-    // Transform the S3 metadata to match OpenAPI schema
-    const metadata = {
-      contentType: rawMetadata['content-type'] || 'application/octet-stream',
-      size: parseInt(rawMetadata['content-length'] || '0', 10),
-      lastModified: rawMetadata['last-modified'] || new Date().toISOString(),
-      ...(rawMetadata['duration'] && { duration: parseFloat(rawMetadata['duration']) }),
+    const result = await audioService.createAudio({
+      userId,
+      fileName,
+      contentType,
+      fileSize,
+      duration,
+    });
+
+    const response: CreateAudioResponse = {
+      success: true,
+      audioId: result.audioId,
+      uploadUrl: result.uploadUrl,
+      expiresIn: result.expiresIn,
     };
 
-    const response: MetadataResponse = {
+    return {
+      statusCode: 201,
+      headers,
+      body: JSON.stringify(response),
+    };
+  } catch (error) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({
+        error: error instanceof Error ? error.message : 'Failed to create audio upload',
+      }),
+    };
+  }
+}
+
+async function handleUserAudioList(event: any, userId: string): Promise<any> {
+  try {
+    const queryParams = event.queryStringParameters || {};
+    const limit = queryParams.limit ? parseInt(queryParams.limit, 10) : undefined;
+    const lastEvaluatedKey = queryParams.lastEvaluatedKey;
+    const status = queryParams.status;
+
+    const result = await audioService.listAudio({
+      userId,
+      limit,
+      lastEvaluatedKey,
+      status,
+    });
+
+    const response: ListAudioResponse = {
       success: true,
-      metadata,
+      audioFiles: result.audioFiles,
+      lastEvaluatedKey: result.lastEvaluatedKey,
+      totalCount: result.totalCount,
     };
 
     return {
@@ -245,36 +236,27 @@ async function handleGetMetadata(event: any, userId: string): Promise<any> {
     };
   } catch (error) {
     return {
-      statusCode: 403,
+      statusCode: 500,
       headers,
       body: JSON.stringify({
-        error: error instanceof Error ? error.message : 'Failed to get metadata',
+        error: error instanceof Error ? error.message : 'Failed to list audio files',
       }),
     };
   }
 }
 
-async function handleGetAudioUrl(event: any, userId: string): Promise<any> {
-  // With direct routes, the path parameter is in 'audioFileKey'
-  const audioFileKey = event.pathParameters?.audioFileKey;
-
-  if (!audioFileKey) {
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({ error: 'Audio file key is required' }),
-    };
-  }
-
+async function handleUserAudioGet(event: any, userId: string, audioId: string): Promise<any> {
   try {
-    const result = await audioStorageService.generateDownloadUrl({
-      audioFileKey: decodeURIComponent(audioFileKey),
+    const result = await audioService.getAudio({
+      audioId,
       userId,
     });
 
-    const response: GetAudioFileUrlResponse = {
+    const response: GetAudioResponse = {
       success: true,
-      ...result,
+      audio: result.audio,
+      downloadUrl: result.downloadUrl,
+      expiresIn: result.expiresIn,
     };
 
     return {
@@ -283,34 +265,31 @@ async function handleGetAudioUrl(event: any, userId: string): Promise<any> {
       body: JSON.stringify(response),
     };
   } catch (error) {
+    const statusCode = error instanceof Error && (
+      error.message.includes('not found') || 
+      error.message.includes('Audio file not found') ||
+      error.message.includes('must be a valid UUID')
+    ) ? 404 : 500;
     return {
-      statusCode: 403,
+      statusCode,
       headers,
       body: JSON.stringify({
-        error: error instanceof Error ? error.message : 'Failed to generate download URL',
+        error: error instanceof Error ? error.message : 'Failed to get audio file',
       }),
     };
   }
 }
 
-async function handleDeleteAudio(event: any, userId: string): Promise<any> {
-  // With direct routes, the path parameter is in 'audioFileKey'
-  const audioFileKey = event.pathParameters?.audioFileKey;
-
-  if (!audioFileKey) {
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({ error: 'Audio file key is required' }),
-    };
-  }
-
+async function handleUserAudioDelete(event: any, userId: string, audioId: string): Promise<any> {
   try {
-    await audioStorageService.deleteAudioFile(decodeURIComponent(audioFileKey), userId);
+    const result = await audioService.deleteAudio({
+      audioId,
+      userId,
+    });
 
-    const response: DeleteAudioFileResponse = {
-      success: true,
-      message: 'Audio file deleted successfully',
+    const response: DeleteAudioResponse = {
+      success: result.success,
+      message: result.message,
     };
 
     return {
@@ -319,11 +298,51 @@ async function handleDeleteAudio(event: any, userId: string): Promise<any> {
       body: JSON.stringify(response),
     };
   } catch (error) {
+    const statusCode = error instanceof Error && (
+      error.message.includes('not found') || 
+      error.message.includes('Audio file not found') ||
+      error.message.includes('must be a valid UUID')
+    ) ? 404 : 500;
     return {
-      statusCode: 403,
+      statusCode,
       headers,
       body: JSON.stringify({
         error: error instanceof Error ? error.message : 'Failed to delete audio file',
+      }),
+    };
+  }
+}
+
+async function handleUserAudioProcess(event: any, userId: string, audioId: string): Promise<any> {
+  try {
+    const result = await audioService.processAudio({
+      audioId,
+      userId,
+    });
+
+    const response: ProcessAudioResponse = {
+      success: result.success,
+      message: result.message,
+      transcriptionId: result.transcriptionId,
+      status: result.status,
+    };
+
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify(response),
+    };
+  } catch (error) {
+    const statusCode = error instanceof Error && (
+      error.message.includes('not found') || 
+      error.message.includes('Audio file not found') ||
+      error.message.includes('must be a valid UUID')
+    ) ? 404 : 400;
+    return {
+      statusCode,
+      headers,
+      body: JSON.stringify({
+        error: error instanceof Error ? error.message : 'Failed to process audio file',
       }),
     };
   }

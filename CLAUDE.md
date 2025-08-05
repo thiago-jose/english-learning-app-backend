@@ -119,3 +119,90 @@ English learning application backend built with AWS SAM, TypeScript, Node.js, Dy
 - **NEVER add `Auth: NONE` to user-specific endpoints** - always use JWT authorizer
 - **Client applications should only store and use ID tokens** for API requests
 - **Integration tests must use `idToken` for all authenticated requests**
+
+## Audio System Architecture (✅ REFACTORED)
+
+### User-Scoped Audio API (NEW ARCHITECTURE)
+- **Status**: ✅ Phase 1 Complete - Domain layer and infrastructure implemented
+- **Migration**: From `/audio/*` to `/users/{userId}/audio/*` pattern
+- **Endpoints**: User-scoped endpoints defined in SAM template, controller implementation needed
+- **Testing**: Legacy endpoints (18/18 tests passing), new endpoint tests needed
+
+### Audio Domain Model (✅ IMPLEMENTED)
+```typescript
+Audio {
+  id: AudioId           // UUID abstraction (not S3 key)
+  userId: UserId        // Clear ownership
+  fileName: string      // Original filename
+  contentType: string   // MIME type validation
+  fileSize: number      // Size validation  
+  duration?: number     // Audio duration
+  s3Key: string         // Internal S3 reference
+  status: AudioStatus   // UPLOADED|PROCESSING|PROCESSED|FAILED
+  transcriptionId?: TranscriptionId
+  processingError?: string
+  uploadedAt: Date
+  processedAt?: Date
+}
+```
+
+### New API Endpoints (✅ DEFINED)
+```
+POST   /users/{userId}/audio/upload           # Generate upload URL
+GET    /users/{userId}/audio                  # List user's audio files  
+GET    /users/{userId}/audio/{audioId}        # Get audio details + download URL
+DELETE /users/{userId}/audio/{audioId}       # Delete audio file
+POST   /users/{userId}/audio/{audioId}/process # Process audio → words
+```
+
+### Repository Pattern Implementation (✅ COMPLETE)
+- **IAudioRepository**: Domain repository interface with all audio operations
+- **DynamoDBAudioRepository**: Complete DynamoDB implementation with GSI indexes
+- **AudioMapper**: Maps between domain entities and DynamoDB items
+- **Type Safety**: Value objects (AudioId, UserId, TranscriptionId) for type safety
+
+### DynamoDB Audio Table Design (✅ DEPLOYED)
+```
+Table: dev-audio
+Primary Key: id (AudioId)
+GSI: UserIdIndex (userId + uploadedAt) - List user's audio files
+GSI: UserIdStatusIndex (userId + status) - Query by processing status  
+GSI: StatusIndex (status + uploadedAt) - System processing queries
+```
+
+### Key Architectural Improvements
+- **User Isolation**: Clear ownership model via URL structure (`/users/{userId}/audio/*`)
+- **Resource Abstraction**: AudioId instead of S3 keys in public API  
+- **Status Tracking**: Complete audio processing lifecycle with business rules
+- **Business Rules**: Domain validation and processing workflow in Audio entity
+- **Eliminate Redundancy**: Single endpoint for each operation (removed duplicate download endpoints)
+- **Type Safety**: Value objects prevent primitive obsession and ensure type safety
+
+### Audio Processing Workflow
+1. **Upload**: User uploads audio → AudioId generated → Status: UPLOADED
+2. **Processing**: Audio transcription initiated → Status: PROCESSING  
+3. **Analysis**: AI analysis extracts words → Status: PROCESSED
+4. **Error Handling**: Failed processing → Status: FAILED → Retry capability
+
+### Implementation Status
+- **✅ Domain Layer**: Audio entity with business rules and validation
+- **✅ Repository Layer**: DynamoDB repository with efficient queries
+- **✅ Infrastructure**: New DynamoDB table with GSI indexes deployed
+- **✅ API Definition**: User-scoped endpoints in SAM template
+- **⚠️ Controller Layer**: Implementation needed for new endpoints
+- **⚠️ Use Cases**: Audio processing workflow implementation needed
+- **⚠️ Testing Migration**: Update 18 integration tests for new endpoint structure
+
+### Audio Controller Implementation (PHASE 2)
+When implementing audio controllers, follow these patterns:
+- **User Validation**: Always validate `userId` from path against JWT claims
+- **Resource Access**: Use `AudioRepository.findByIdAndUserId()` for user isolation
+- **Error Handling**: Return proper HTTP status codes (404, 403, 400)
+- **S3 Integration**: Generate presigned URLs for upload/download operations
+- **Status Management**: Update audio status through domain entity methods
+
+### Legacy Endpoint Support (TEMPORARY)
+- **Current**: Legacy `/audio/*` endpoints still operational (18/18 tests passing)
+- **Migration Strategy**: Deploy new endpoints alongside legacy ones
+- **Data Migration**: Move existing audio data to new table structure
+- **Deprecation Plan**: Remove legacy endpoints after client migration

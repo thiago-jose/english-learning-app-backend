@@ -132,6 +132,49 @@ Resources:
         - AttributeName: userId
           KeyType: HASH
 
+  AudioTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${Environment}-audio
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: status
+          AttributeType: S
+        - AttributeName: uploadedAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: UserIdIndex
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: uploadedAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: UserIdStatusIndex
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: status
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: StatusIndex
+          KeySchema:
+            - AttributeName: status
+              KeyType: HASH
+            - AttributeName: uploadedAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
   # S3 Bucket for Audio Files
   AudioFilesBucket:
     Type: AWS::S3::Bucket
@@ -413,44 +456,51 @@ Resources:
   #   Metadata:
   #     BuildMethod: makefile
 
-  # Audio Function with Direct Routes
+  # Audio Function with User-Scoped Routes
   AudioFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ./
       Handler: dist/presentation/controllers/domain/audio/index.handler
       Events:
-        AudioUpload:
+        # User-scoped audio upload
+        UserAudioUpload:
           Type: Api
           Properties:
             RestApiId: !Ref ApiGatewayApi
-            Path: /audio/upload
+            Path: /users/{userId}/audio/upload
             Method: POST
-        AudioDownload:
+        # List user's audio files
+        UserAudioList:
           Type: Api
           Properties:
             RestApiId: !Ref ApiGatewayApi
-            Path: /audio/download
-            Method: POST
-        AudioMetadata:
-          Type: Api
-          Properties:
-            RestApiId: !Ref ApiGatewayApi
-            Path: /audio/metadata
-            Method: POST
-        AudioFileGet:
-          Type: Api
-          Properties:
-            RestApiId: !Ref ApiGatewayApi
-            Path: /audio/files/{audioFileKey}
+            Path: /users/{userId}/audio
             Method: GET
-        AudioFileDelete:
+        # Get specific audio file details + download URL
+        UserAudioGet:
           Type: Api
           Properties:
             RestApiId: !Ref ApiGatewayApi
-            Path: /audio/files/{audioFileKey}
+            Path: /users/{userId}/audio/{audioId}
+            Method: GET
+        # Delete specific audio file
+        UserAudioDelete:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGatewayApi
+            Path: /users/{userId}/audio/{audioId}
             Method: DELETE
+        # Process audio (transcription + word extraction)
+        UserAudioProcess:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGatewayApi
+            Path: /users/{userId}/audio/{audioId}/process
+            Method: POST
       Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AudioTable
         - S3ReadPolicy:
             BucketName: !Ref AudioFilesBucket
         - S3WritePolicy:
@@ -465,6 +515,7 @@ Resources:
       Environment:
         Variables:
           STORAGE_BUCKET_NAME: !Ref AudioFilesBucket
+          AUDIO_TABLE_NAME: !Ref AudioTable
     Metadata:
       BuildMethod: makefile
 
@@ -533,6 +584,12 @@ Outputs:
     Value: !Ref UserProgressTable
     Export:
       Name: !Sub "${AWS::StackName}-UserProgressTableName"
+  
+  AudioTableName:
+    Description: Audio DynamoDB table name
+    Value: !Ref AudioTable
+    Export:
+      Name: !Sub "${AWS::StackName}-AudioTableName"
   
   # S3 Bucket
   AudioFilesBucketName:
