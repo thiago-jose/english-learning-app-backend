@@ -5,6 +5,7 @@ import { TranscriptionId } from '../../domain/value-objects/TranscriptionId';
 import { IAudioRepository } from '../../domain/repositories/IAudioRepository';
 import { AudioStorageService } from '../../infrastructure/services/AudioStorageService';
 import { AudioStatus } from '../../domain/entities/Audio';
+import { components } from '../../types/api';
 
 // Request/Response interfaces
 export interface CreateAudioRequest {
@@ -15,6 +16,7 @@ export interface CreateAudioRequest {
   duration?: number;
 }
 
+// Use a subset of the OpenAPI CreateAudioResponse (without 'success' field for service layer)
 export interface CreateAudioResponse {
   audioId: string;
   uploadUrl: string;
@@ -27,18 +29,7 @@ export interface GetAudioRequest {
 }
 
 export interface GetAudioResponse {
-  audio: {
-    id: string;
-    fileName: string;
-    contentType: string;
-    fileSize: number;
-    duration?: number;
-    status: string;
-    uploadedAt: string;
-    processedAt?: string;
-    transcriptionId?: string;
-    processingError?: string;
-  };
+  audio: components['schemas']['AudioFile'];
   downloadUrl: string;
   expiresIn: number;
 }
@@ -51,18 +42,7 @@ export interface ListAudioRequest {
 }
 
 export interface ListAudioResponse {
-  audioFiles: Array<{
-    id: string;
-    fileName: string;
-    contentType: string;
-    fileSize: number;
-    duration?: number;
-    status: string;
-    uploadedAt: string;
-    processedAt?: string;
-    transcriptionId?: string;
-    processingError?: string;
-  }>;
+  audioFiles: Array<components['schemas']['AudioFile']>;
   lastEvaluatedKey?: string;
   totalCount: number;
 }
@@ -72,6 +52,7 @@ export interface DeleteAudioRequest {
   userId: string;
 }
 
+// Matches OpenAPI DeleteAudioResponse exactly
 export interface DeleteAudioResponse {
   success: boolean;
   message: string;
@@ -82,11 +63,12 @@ export interface ProcessAudioRequest {
   userId: string;
 }
 
+// Matches OpenAPI ProcessAudioResponse exactly
 export interface ProcessAudioResponse {
   success: boolean;
   message: string;
   transcriptionId: string;
-  status: string;
+  status: 'PROCESSING';
 }
 
 export class AudioService {
@@ -155,7 +137,7 @@ export class AudioService {
         contentType: audioData.contentType,
         fileSize: audioData.fileSize,
         duration: audioData.duration,
-        status: audioData.status,
+        status: audioData.status as 'UPLOADED' | 'PROCESSING' | 'PROCESSED' | 'FAILED',
         uploadedAt: audioData.uploadedAt.toISOString(),
         processedAt: audioData.processedAt?.toISOString(),
         transcriptionId: audioData.transcriptionId,
@@ -190,7 +172,7 @@ export class AudioService {
         contentType: audioData.contentType,
         fileSize: audioData.fileSize,
         duration: audioData.duration,
-        status: audioData.status,
+        status: audioData.status as 'UPLOADED' | 'PROCESSING' | 'PROCESSED' | 'FAILED',
         uploadedAt: audioData.uploadedAt.toISOString(),
         processedAt: audioData.processedAt?.toISOString(),
         transcriptionId: audioData.transcriptionId,
@@ -279,7 +261,7 @@ export class AudioService {
         success: true,
         message: 'Audio processing started successfully',
         transcriptionId: transcriptionId.toString(),
-        status: audio.status,
+        status: 'PROCESSING' as const,
       };
     } catch (error) {
       // If processing fails to start, mark as failed

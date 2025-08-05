@@ -4,69 +4,15 @@ import { DynamoDBAudioRepository } from '../../../../infrastructure/repositories
 import { AudioMapper } from '../../../../infrastructure/mappers/AudioMapper';
 import { AudioService } from '../../../../application/services/AudioService';
 import { getAuthenticatedUser } from '../../../utils/auth';
+import { components } from '../../../../types/api';
 
-// Request/Response types for user-scoped endpoints
-interface CreateAudioRequest {
-  fileName: string;
-  contentType: string;
-  fileSize?: number;
-  duration?: number;
-}
-
-interface CreateAudioResponse {
-  success: boolean;
-  audioId: string;
-  uploadUrl: string;
-  expiresIn: number;
-}
-
-interface ListAudioResponse {
-  success: boolean;
-  audioFiles: Array<{
-    id: string;
-    fileName: string;
-    contentType: string;
-    fileSize: number;
-    duration?: number;
-    status: string;
-    uploadedAt: string;
-    processedAt?: string;
-    transcriptionId?: string;
-    processingError?: string;
-  }>;
-  lastEvaluatedKey?: string;
-  totalCount: number;
-}
-
-interface GetAudioResponse {
-  success: boolean;
-  audio: {
-    id: string;
-    fileName: string;
-    contentType: string;
-    fileSize: number;
-    duration?: number;
-    status: string;
-    uploadedAt: string;
-    processedAt?: string;
-    transcriptionId?: string;
-    processingError?: string;
-  };
-  downloadUrl: string;
-  expiresIn: number;
-}
-
-interface DeleteAudioResponse {
-  success: boolean;
-  message: string;
-}
-
-interface ProcessAudioResponse {
-  success: boolean;
-  message: string;
-  transcriptionId: string;
-  status: string;
-}
+// Use generated OpenAPI types
+type CreateAudioRequest = components['schemas']['CreateAudioRequest'];
+type CreateAudioResponse = components['schemas']['CreateAudioResponse'];
+type ListAudioResponse = components['schemas']['ListAudioResponse'];
+type GetAudioResponse = components['schemas']['GetAudioResponse'];
+type DeleteAudioResponse = components['schemas']['DeleteAudioResponse'];
+type ProcessAudioResponse = components['schemas']['ProcessAudioResponse'];
 
 // Initialize services and repositories
 const audioStorageService = new AudioStorageService(
