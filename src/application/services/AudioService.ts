@@ -100,7 +100,7 @@ export class AudioService {
     this.validateCreateRequest(request);
 
     const userId = UserId.fromString(request.userId);
-    
+
     // Generate upload URL first to get the actual S3 key that will be used
     const uploadResult = await this.audioStorageService.generateUploadUrl({
       fileName: request.fileName,
@@ -135,7 +135,7 @@ export class AudioService {
 
     // Find audio by ID and user ID for security
     const audio = await this.audioRepository.findByIdAndUserId(audioId, userId);
-    
+
     if (!audio) {
       throw new Error('Audio file not found or access denied');
     }
@@ -177,16 +177,12 @@ export class AudioService {
           request.limit,
           request.lastEvaluatedKey
         )
-      : await this.audioRepository.findByUserId(
-          userId,
-          request.limit,
-          request.lastEvaluatedKey
-        );
+      : await this.audioRepository.findByUserId(userId, request.limit, request.lastEvaluatedKey);
 
     // Get total count for the user
     const totalCount = await this.audioRepository.countByUserId(userId);
 
-    const audioFiles = result.items.map(audio => {
+    const audioFiles = result.items.map((audio) => {
       const audioData = audio.toJSON();
       return {
         id: audioData.id,
@@ -215,7 +211,7 @@ export class AudioService {
 
     // Find audio by ID and user ID for security
     const audio = await this.audioRepository.findByIdAndUserId(audioId, userId);
-    
+
     if (!audio) {
       throw new Error('Audio file not found or access denied');
     }
@@ -223,7 +219,7 @@ export class AudioService {
     try {
       // Delete from S3 first
       await this.audioStorageService.deleteAudioFile(audio.s3Key, request.userId);
-      
+
       // Then delete from database
       await this.audioRepository.delete(audioId);
 
@@ -239,8 +235,10 @@ export class AudioService {
       } catch (dbError) {
         console.error('Failed to delete audio record from database:', dbError);
       }
-      
-      throw new Error(`Failed to delete audio file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+
+      throw new Error(
+        `Failed to delete audio file: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -250,7 +248,7 @@ export class AudioService {
 
     // Find audio by ID and user ID for security
     const audio = await this.audioRepository.findByIdAndUserId(audioId, userId);
-    
+
     if (!audio) {
       throw new Error('Audio file not found or access denied');
     }
@@ -262,11 +260,11 @@ export class AudioService {
 
     // Generate transcription ID and start processing
     const transcriptionId = TranscriptionId.create();
-    
+
     try {
       // Start processing (this will change status to PROCESSING)
       audio.startProcessing(transcriptionId);
-      
+
       // Save updated audio
       await this.audioRepository.update(audio);
 
@@ -276,7 +274,7 @@ export class AudioService {
       // 3. Process transcription results
       // 4. Extract words using AI (Bedrock)
       // 5. Update status to PROCESSED or FAILED
-      
+
       return {
         success: true,
         message: 'Audio processing started successfully',
@@ -287,7 +285,7 @@ export class AudioService {
       // If processing fails to start, mark as failed
       audio.markAsFailed(error instanceof Error ? error.message : 'Failed to start processing');
       await this.audioRepository.update(audio);
-      
+
       throw error;
     }
   }

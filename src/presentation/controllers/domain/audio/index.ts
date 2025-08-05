@@ -104,7 +104,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // Extract authenticated user information from Cognito JWT claims
     const authenticatedUser = getAuthenticatedUser(event);
     const userId = authenticatedUser.userId;
-    
+
     console.log(
       `Authenticated user: ${authenticatedUser.name} (${authenticatedUser.email}) via ${authenticatedUser.provider}`
     );
@@ -120,7 +120,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       return {
         statusCode: 403,
         headers,
-        body: JSON.stringify({ error: 'Access denied: Cannot access another user\'s resources' }),
+        body: JSON.stringify({ error: "Access denied: Cannot access another user's resources" }),
       };
     }
 
@@ -265,11 +265,13 @@ async function handleUserAudioGet(event: any, userId: string, audioId: string): 
       body: JSON.stringify(response),
     };
   } catch (error) {
-    const statusCode = error instanceof Error && (
-      error.message.includes('not found') || 
-      error.message.includes('Audio file not found') ||
-      error.message.includes('must be a valid UUID')
-    ) ? 404 : 500;
+    const statusCode =
+      error instanceof Error &&
+      (error.message.includes('not found') ||
+        error.message.includes('Audio file not found') ||
+        error.message.includes('must be a valid UUID'))
+        ? 404
+        : 500;
     return {
       statusCode,
       headers,
@@ -298,11 +300,13 @@ async function handleUserAudioDelete(event: any, userId: string, audioId: string
       body: JSON.stringify(response),
     };
   } catch (error) {
-    const statusCode = error instanceof Error && (
-      error.message.includes('not found') || 
-      error.message.includes('Audio file not found') ||
-      error.message.includes('must be a valid UUID')
-    ) ? 404 : 500;
+    const statusCode =
+      error instanceof Error &&
+      (error.message.includes('not found') ||
+        error.message.includes('Audio file not found') ||
+        error.message.includes('must be a valid UUID'))
+        ? 404
+        : 500;
     return {
       statusCode,
       headers,
@@ -333,11 +337,13 @@ async function handleUserAudioProcess(event: any, userId: string, audioId: strin
       body: JSON.stringify(response),
     };
   } catch (error) {
-    const statusCode = error instanceof Error && (
-      error.message.includes('not found') || 
-      error.message.includes('Audio file not found') ||
-      error.message.includes('must be a valid UUID')
-    ) ? 404 : 400;
+    const statusCode =
+      error instanceof Error &&
+      (error.message.includes('not found') ||
+        error.message.includes('Audio file not found') ||
+        error.message.includes('must be a valid UUID'))
+        ? 404
+        : 400;
     return {
       statusCode,
       headers,

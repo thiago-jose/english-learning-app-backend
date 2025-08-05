@@ -21,7 +21,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  '/audio/upload': {
+  '/users/{userId}/audio/upload': {
     parameters: {
       query?: never;
       header?: never;
@@ -30,61 +30,61 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Generate presigned URL for audio upload */
-    post: operations['generateUploadUrl'];
+    /** Create audio upload for user */
+    post: operations['createUserAudioUpload'];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  '/audio/download': {
+  '/users/{userId}/audio': {
     parameters: {
       query?: never;
       header?: never;
       path?: never;
       cookie?: never;
     };
-    get?: never;
-    put?: never;
-    /** Generate presigned URL for audio download */
-    post: operations['generateDownloadUrl'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/audio/metadata': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Get audio file metadata */
-    post: operations['getAudioMetadata'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/audio/files/{audioFileKey}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Get download URL for specific audio file */
-    get: operations['getAudioFileUrl'];
+    /** List user's audio files */
+    get: operations['listUserAudio'];
     put?: never;
     post?: never;
-    /** Delete audio file */
-    delete: operations['deleteAudioFile'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/users/{userId}/audio/{audioId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get user's audio file details and download URL */
+    get: operations['getUserAudio'];
+    put?: never;
+    post?: never;
+    /** Delete user's audio file */
+    delete: operations['deleteUserAudio'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/users/{userId}/audio/{audioId}/process': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Start processing user's audio file */
+    post: operations['processUserAudio'];
+    delete?: never;
     options?: never;
     head?: never;
     patch?: never;
@@ -217,7 +217,7 @@ export interface components {
       /** @example 1.2.1 */
       version: string;
     };
-    GenerateUploadUrlRequest: {
+    CreateAudioRequest: {
       /**
        * @description Name of the audio file
        * @example my-audio.mp3
@@ -228,7 +228,18 @@ export interface components {
        * @example audio/mpeg
        * @enum {string}
        */
-      contentType: 'audio/mpeg' | 'audio/wav' | 'audio/m4a' | 'audio/webm';
+      contentType:
+        | 'audio/mpeg'
+        | 'audio/mp3'
+        | 'audio/mp4'
+        | 'audio/m4a'
+        | 'audio/wav'
+        | 'audio/wave'
+        | 'audio/x-wav'
+        | 'audio/webm'
+        | 'audio/ogg'
+        | 'audio/flac'
+        | 'audio/aac';
       /**
        * @description Duration in seconds (optional)
        * @example 30
@@ -240,14 +251,15 @@ export interface components {
        */
       fileSize?: number;
     };
-    UploadUrlResponse: {
+    CreateAudioResponse: {
       /** @example true */
       success: boolean;
       /**
-       * @description Unique key for the uploaded file
-       * @example audio-files/user123/audio_20231201_143022.mp3
+       * Format: uuid
+       * @description Unique identifier for the audio file
+       * @example 550e8400-e29b-41d4-a716-446655440000
        */
-      audioFileKey: string;
+      audioId: string;
       /**
        * Format: uri
        * @description Presigned URL for uploading the file
@@ -258,32 +270,61 @@ export interface components {
        * @example 3600
        */
       expiresIn: number;
-      /**
-       * @description Maximum allowed file size in bytes
-       * @example 104857600
-       */
-      maxFileSize: number;
-      /**
-       * @description List of supported audio formats
-       * @example [
-       *       "audio/mpeg",
-       *       "audio/wav",
-       *       "audio/m4a",
-       *       "audio/webm"
-       *     ]
-       */
-      supportedFormats: string[];
     };
-    GenerateDownloadUrlRequest: {
+    AudioFile: {
       /**
-       * @description The audio file key to download
-       * @example audio-files/user123/audio_20231201_143022.mp3
+       * Format: uuid
+       * @description Audio file UUID
        */
-      audioFileKey: string;
+      id: string;
+      /** @description Original file name */
+      fileName: string;
+      /** @description MIME type of the audio file */
+      contentType: string;
+      /** @description File size in bytes */
+      fileSize: number;
+      /** @description Duration in seconds (optional) */
+      duration?: number;
+      /**
+       * @description Processing status
+       * @enum {string}
+       */
+      status: 'UPLOADED' | 'PROCESSING' | 'PROCESSED' | 'FAILED';
+      /**
+       * Format: date-time
+       * @description Upload timestamp
+       */
+      uploadedAt: string;
+      /**
+       * Format: date-time
+       * @description Processing completion timestamp (optional)
+       */
+      processedAt?: string;
+      /**
+       * Format: uuid
+       * @description Transcription job ID (optional)
+       */
+      transcriptionId?: string;
+      /** @description Error message if processing failed (optional) */
+      processingError?: string;
     };
-    DownloadUrlResponse: {
+    ListAudioResponse: {
       /** @example true */
       success: boolean;
+      /** @description List of audio files */
+      audioFiles: components['schemas']['AudioFile'][];
+      /** @description Pagination token for next page (optional) */
+      lastEvaluatedKey?: string;
+      /**
+       * @description Total number of audio files for the user
+       * @example 42
+       */
+      totalCount: number;
+    };
+    GetAudioResponse: {
+      /** @example true */
+      success: boolean;
+      audio: components['schemas']['AudioFile'];
       /**
        * Format: uri
        * @description Presigned URL for downloading the file
@@ -295,35 +336,27 @@ export interface components {
        */
       expiresIn: number;
     };
-    GetMetadataRequest: {
-      /**
-       * @description The audio file key to get metadata for
-       * @example audio-files/user123/audio_20231201_143022.mp3
-       */
-      audioFileKey: string;
-    };
-    MetadataResponse: {
-      /** @example true */
-      success: boolean;
-      metadata: {
-        /** @example audio/mpeg */
-        contentType: string;
-        /** @example 1048576 */
-        size: number;
-        /** Format: date-time */
-        lastModified: string;
-        /**
-         * @description Duration in seconds
-         * @example 30
-         */
-        duration?: number;
-      };
-    };
-    DeleteResponse: {
+    DeleteAudioResponse: {
       /** @example true */
       success: boolean;
       /** @example Audio file deleted successfully */
       message: string;
+    };
+    ProcessAudioResponse: {
+      /** @example true */
+      success: boolean;
+      /** @example Audio processing started successfully */
+      message: string;
+      /**
+       * Format: uuid
+       * @description Unique identifier for the transcription job
+       */
+      transcriptionId: string;
+      /**
+       * @description New processing status
+       * @enum {string}
+       */
+      status: 'PROCESSING';
     };
     CreateUserRequest: {
       /**
@@ -436,26 +469,29 @@ export interface operations {
       };
     };
   };
-  generateUploadUrl: {
+  createUserAudioUpload: {
     parameters: {
       query?: never;
       header?: never;
-      path?: never;
+      path: {
+        /** @description User UUID */
+        userId: string;
+      };
       cookie?: never;
     };
     requestBody: {
       content: {
-        'application/json': components['schemas']['GenerateUploadUrlRequest'];
+        'application/json': components['schemas']['CreateAudioRequest'];
       };
     };
     responses: {
-      /** @description Upload URL generated successfully */
-      200: {
+      /** @description Audio upload created successfully */
+      201: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          'application/json': components['schemas']['UploadUrlResponse'];
+          'application/json': components['schemas']['CreateAudioResponse'];
         };
       };
       /** @description Bad request */
@@ -476,40 +512,7 @@ export interface operations {
           'application/json': components['schemas']['ErrorResponse'];
         };
       };
-    };
-  };
-  generateDownloadUrl: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['GenerateDownloadUrlRequest'];
-      };
-    };
-    responses: {
-      /** @description Download URL generated successfully */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['DownloadUrlResponse'];
-        };
-      };
-      /** @description Bad request */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Forbidden - file not accessible */
+      /** @description Forbidden - cannot access another user's resources */
       403: {
         headers: {
           [name: string]: unknown;
@@ -520,67 +523,32 @@ export interface operations {
       };
     };
   };
-  getAudioMetadata: {
+  listUserAudio: {
     parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['GetMetadataRequest'];
+      query?: {
+        /** @description Maximum number of items to return */
+        limit?: number;
+        /** @description Pagination token for next page */
+        lastEvaluatedKey?: string;
+        /** @description Filter by audio status */
+        status?: 'UPLOADED' | 'PROCESSING' | 'PROCESSED' | 'FAILED';
       };
-    };
-    responses: {
-      /** @description Metadata retrieved successfully */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['MetadataResponse'];
-        };
-      };
-      /** @description Bad request */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-      /** @description Forbidden - file not accessible */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ErrorResponse'];
-        };
-      };
-    };
-  };
-  getAudioFileUrl: {
-    parameters: {
-      query?: never;
       header?: never;
       path: {
-        /** @description The audio file key (URL encoded) */
-        audioFileKey: string;
+        /** @description User UUID */
+        userId: string;
       };
       cookie?: never;
     };
     requestBody?: never;
     responses: {
-      /** @description Download URL retrieved successfully */
+      /** @description Audio files retrieved successfully */
       200: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          'application/json': components['schemas']['DownloadUrlResponse'];
+          'application/json': components['schemas']['ListAudioResponse'];
         };
       };
       /** @description Bad request */
@@ -592,7 +560,16 @@ export interface operations {
           'application/json': components['schemas']['ErrorResponse'];
         };
       };
-      /** @description Forbidden - file not accessible */
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ErrorResponse'];
+        };
+      };
+      /** @description Forbidden - cannot access another user's resources */
       403: {
         headers: {
           [name: string]: unknown;
@@ -603,13 +580,76 @@ export interface operations {
       };
     };
   };
-  deleteAudioFile: {
+  getUserAudio: {
     parameters: {
       query?: never;
       header?: never;
       path: {
-        /** @description The audio file key (URL encoded) */
-        audioFileKey: string;
+        /** @description User UUID */
+        userId: string;
+        /** @description Audio UUID */
+        audioId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Audio details retrieved successfully */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['GetAudioResponse'];
+        };
+      };
+      /** @description Bad request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ErrorResponse'];
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ErrorResponse'];
+        };
+      };
+      /** @description Forbidden - cannot access another user's resources */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ErrorResponse'];
+        };
+      };
+      /** @description Audio file not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ErrorResponse'];
+        };
+      };
+    };
+  };
+  deleteUserAudio: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description User UUID */
+        userId: string;
+        /** @description Audio UUID */
+        audioId: string;
       };
       cookie?: never;
     };
@@ -621,7 +661,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          'application/json': components['schemas']['DeleteResponse'];
+          'application/json': components['schemas']['DeleteAudioResponse'];
         };
       };
       /** @description Bad request */
@@ -633,8 +673,87 @@ export interface operations {
           'application/json': components['schemas']['ErrorResponse'];
         };
       };
-      /** @description Forbidden - file not accessible */
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ErrorResponse'];
+        };
+      };
+      /** @description Forbidden - cannot access another user's resources */
       403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ErrorResponse'];
+        };
+      };
+      /** @description Audio file not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ErrorResponse'];
+        };
+      };
+    };
+  };
+  processUserAudio: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description User UUID */
+        userId: string;
+        /** @description Audio UUID */
+        audioId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Audio processing started successfully */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ProcessAudioResponse'];
+        };
+      };
+      /** @description Bad request or audio not in processable state */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ErrorResponse'];
+        };
+      };
+      /** @description Unauthorized */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ErrorResponse'];
+        };
+      };
+      /** @description Forbidden - cannot access another user's resources */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ErrorResponse'];
+        };
+      };
+      /** @description Audio file not found */
+      404: {
         headers: {
           [name: string]: unknown;
         };

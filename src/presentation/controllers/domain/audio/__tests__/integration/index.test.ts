@@ -219,7 +219,11 @@ describe('Audio Controller User-Scoped API Integration Tests', () => {
 
         // Create second test user for isolation testing
         const secondTestUserEmail = `audio-test-2-${Date.now()}@example.com`;
-        await cognitoHelper.createTestUser(secondTestUserEmail, 'TestPass123!', 'Audio Test User 2');
+        await cognitoHelper.createTestUser(
+          secondTestUserEmail,
+          'TestPass123!',
+          'Audio Test User 2'
+        );
         const secondTokens = await cognitoHelper.signInUser(secondTestUserEmail, 'TestPass123!');
 
         secondJwtTestUser = {
@@ -368,7 +372,7 @@ describe('Audio Controller User-Scoped API Integration Tests', () => {
       }
     }, 10000);
 
-    it('should reject access to another user\'s upload endpoint', async () => {
+    it("should reject access to another user's upload endpoint", async () => {
       if (!jwtTestUser || !secondJwtTestUser) throw new Error('JWT test users required');
 
       const requestData = {
@@ -415,13 +419,10 @@ describe('Audio Controller User-Scoped API Integration Tests', () => {
       uploadedAudioIds.push(testAudioId);
     });
 
-    it('should list user\'s audio files', async () => {
+    it("should list user's audio files", async () => {
       if (!jwtTestUser) throw new Error('JWT test user required');
 
-      const response = await makeAuthenticatedRequest(
-        'GET',
-        `users/${jwtTestUser.userId}/audio`
-      );
+      const response = await makeAuthenticatedRequest('GET', `users/${jwtTestUser.userId}/audio`);
 
       const data = response.data as ListAudioResponse;
 
@@ -431,7 +432,7 @@ describe('Audio Controller User-Scoped API Integration Tests', () => {
       expect(data.totalCount).toBeGreaterThanOrEqual(1);
 
       // Should contain our test audio
-      const testAudio = data.audioFiles.find(audio => audio.id === testAudioId);
+      const testAudio = data.audioFiles.find((audio) => audio.id === testAudioId);
       expect(testAudio).toBeDefined();
       expect(testAudio?.fileName).toBe('list-test-audio.mp3');
       expect(testAudio?.contentType).toBe('audio/mpeg');
@@ -453,7 +454,7 @@ describe('Audio Controller User-Scoped API Integration Tests', () => {
       expect(data.audioFiles.length).toBeLessThanOrEqual(1);
     }, 10000);
 
-    it('should reject access to another user\'s audio list', async () => {
+    it("should reject access to another user's audio list", async () => {
       if (!jwtTestUser || !secondJwtTestUser) throw new Error('JWT test users required');
 
       try {
@@ -523,10 +524,7 @@ describe('Audio Controller User-Scoped API Integration Tests', () => {
       const nonExistentId = 'non-existent-audio-id';
 
       try {
-        await makeAuthenticatedRequest(
-          'GET',
-          `users/${jwtTestUser.userId}/audio/${nonExistentId}`
-        );
+        await makeAuthenticatedRequest('GET', `users/${jwtTestUser.userId}/audio/${nonExistentId}`);
         fail('Expected request to fail with 404 status');
       } catch (error: any) {
         expect(error.response.status).toBe(404);
@@ -534,7 +532,7 @@ describe('Audio Controller User-Scoped API Integration Tests', () => {
       }
     }, 10000);
 
-    it('should reject access to another user\'s audio', async () => {
+    it("should reject access to another user's audio", async () => {
       if (!jwtTestUser || !secondJwtTestUser) throw new Error('JWT test users required');
 
       try {
@@ -590,10 +588,7 @@ describe('Audio Controller User-Scoped API Integration Tests', () => {
 
       // Verify audio is deleted by trying to get it
       try {
-        await makeAuthenticatedRequest(
-          'GET',
-          `users/${jwtTestUser.userId}/audio/${testAudioId}`
-        );
+        await makeAuthenticatedRequest('GET', `users/${jwtTestUser.userId}/audio/${testAudioId}`);
         fail('Expected request to fail with 404 status');
       } catch (error: any) {
         expect(error.response.status).toBe(404);
@@ -683,7 +678,7 @@ describe('Audio Controller User-Scoped API Integration Tests', () => {
 
       try {
         await axios.get(url, {
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 'Content-Type': 'application/json' },
         });
         fail('Expected request to fail with 401 status');
       } catch (error: any) {
@@ -698,8 +693,8 @@ describe('Audio Controller User-Scoped API Integration Tests', () => {
         await axios.get(url, {
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer invalid-token'
-          }
+            Authorization: 'Bearer invalid-token',
+          },
         });
         fail('Expected request to fail with 401 status');
       } catch (error: any) {
@@ -745,10 +740,7 @@ describe('Audio Controller User-Scoped API Integration Tests', () => {
       if (!jwtTestUser) throw new Error('JWT test user required');
 
       try {
-        await makeAuthenticatedRequest(
-          'GET',
-          `users/${jwtTestUser.userId}/audio/invalid-endpoint`
-        );
+        await makeAuthenticatedRequest('GET', `users/${jwtTestUser.userId}/audio/invalid-endpoint`);
         fail('Expected request to fail with 404 status');
       } catch (error: any) {
         expect(error.response.status).toBe(404);

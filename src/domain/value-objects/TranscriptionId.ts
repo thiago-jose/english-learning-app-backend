@@ -7,13 +7,13 @@ export class TranscriptionId {
     if (!value || value.trim().length === 0) {
       throw new Error('TranscriptionId cannot be empty');
     }
-    
+
     // Validate UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(value)) {
       throw new Error('TranscriptionId must be a valid UUID');
     }
-    
+
     this.value = value;
   }
 

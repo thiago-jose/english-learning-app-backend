@@ -3,10 +3,10 @@ import { UserId } from '../value-objects/UserId';
 import { TranscriptionId } from '../value-objects/TranscriptionId';
 
 export enum AudioStatus {
-  UPLOADED = 'UPLOADED',       // File uploaded to S3
-  PROCESSING = 'PROCESSING',   // Being transcribed/processed  
-  PROCESSED = 'PROCESSED',     // Successfully processed
-  FAILED = 'FAILED'           // Processing failed
+  UPLOADED = 'UPLOADED', // File uploaded to S3
+  PROCESSING = 'PROCESSING', // Being transcribed/processed
+  PROCESSED = 'PROCESSED', // Successfully processed
+  FAILED = 'FAILED', // Processing failed
 }
 
 export interface AudioProps {
@@ -122,7 +122,7 @@ export class Audio {
     if (this._status !== AudioStatus.UPLOADED) {
       throw new Error(`Cannot start processing audio in status: ${this._status}`);
     }
-    
+
     this._status = AudioStatus.PROCESSING;
     this._transcriptionId = transcriptionId;
     this._processingError = undefined;
@@ -132,7 +132,7 @@ export class Audio {
     if (this._status !== AudioStatus.PROCESSING) {
       throw new Error(`Cannot complete processing audio in status: ${this._status}`);
     }
-    
+
     this._status = AudioStatus.PROCESSED;
     this._processedAt = new Date();
     this._processingError = undefined;
@@ -142,7 +142,7 @@ export class Audio {
     if (this._status !== AudioStatus.PROCESSING) {
       throw new Error(`Cannot fail processing audio in status: ${this._status}`);
     }
-    
+
     this._status = AudioStatus.FAILED;
     this._processingError = error;
   }
@@ -200,7 +200,9 @@ export class Audio {
       s3Key: json.s3Key,
       uploadedAt: json.uploadedAt,
       status: json.status,
-      transcriptionId: json.transcriptionId ? TranscriptionId.fromString(json.transcriptionId) : undefined,
+      transcriptionId: json.transcriptionId
+        ? TranscriptionId.fromString(json.transcriptionId)
+        : undefined,
       processingError: json.processingError,
       processedAt: json.processedAt,
     });
@@ -228,35 +230,35 @@ export class Audio {
     if (!fileName || fileName.trim().length === 0) {
       throw new Error('File name cannot be empty');
     }
-    
+
     if (fileName.length > 255) {
       throw new Error('File name cannot exceed 255 characters');
     }
-    
+
     // Basic file name sanitization
     const sanitized = fileName.trim();
     if (sanitized !== fileName) {
       throw new Error('File name cannot have leading or trailing whitespace');
     }
-    
+
     return sanitized;
   }
 
   private validateContentType(contentType: string): string {
     const supportedTypes = [
       'audio/mpeg',
-      'audio/mp3',  
+      'audio/mp3',
       'audio/wav',
       'audio/mp4',
       'audio/m4a',
       'audio/ogg',
-      'audio/webm'
+      'audio/webm',
     ];
-    
+
     if (!supportedTypes.includes(contentType)) {
       throw new Error(`Unsupported content type: ${contentType}`);
     }
-    
+
     return contentType;
   }
 
@@ -264,12 +266,12 @@ export class Audio {
     if (fileSize <= 0) {
       throw new Error('File size must be greater than 0');
     }
-    
+
     const maxSizeBytes = 100 * 1024 * 1024; // 100MB
     if (fileSize > maxSizeBytes) {
       throw new Error(`File size cannot exceed ${maxSizeBytes} bytes`);
     }
-    
+
     return fileSize;
   }
 }

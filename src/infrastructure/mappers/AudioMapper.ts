@@ -22,7 +22,7 @@ export class AudioMapper implements IAudioMapper {
 
   toDynamoDB(audio: Audio): AudioDynamoDBItem {
     const json = audio.toJSON();
-    
+
     return {
       id: json.id,
       userId: json.userId,

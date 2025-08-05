@@ -21,7 +21,11 @@ export interface IAudioRepository {
   /**
    * Find all audio records for a specific user
    */
-  findByUserId(userId: UserId, limit?: number, lastEvaluatedKey?: string): Promise<{
+  findByUserId(
+    userId: UserId,
+    limit?: number,
+    lastEvaluatedKey?: string
+  ): Promise<{
     items: Audio[];
     lastEvaluatedKey?: string;
   }>;
@@ -30,9 +34,9 @@ export interface IAudioRepository {
    * Find audio records by status for a specific user
    */
   findByUserIdAndStatus(
-    userId: UserId, 
-    status: string, 
-    limit?: number, 
+    userId: UserId,
+    status: string,
+    limit?: number,
     lastEvaluatedKey?: string
   ): Promise<{
     items: Audio[];

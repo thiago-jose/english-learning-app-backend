@@ -30,25 +30,33 @@ paths:
               schema:
                 $ref: '#/components/schemas/HealthResponse'
 
-  # Audio Endpoints
-  /audio/upload:
+  # User-Scoped Audio Endpoints
+  /users/{userId}/audio/upload:
     post:
-      operationId: generateUploadUrl
-      summary: Generate presigned URL for audio upload
+      operationId: createUserAudioUpload
+      summary: Create audio upload for user
       tags: [Audio]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User UUID
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/GenerateUploadUrlRequest'
+              $ref: '#/components/schemas/CreateAudioRequest'
       responses:
-        '200':
-          description: Upload URL generated successfully
+        '201':
+          description: Audio upload created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UploadUrlResponse'
+                $ref: '#/components/schemas/CreateAudioResponse'
         '400':
           description: Bad request
           content:
@@ -61,126 +69,223 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-
-  /audio/download:
-    post:
-      operationId: generateDownloadUrl
-      summary: Generate presigned URL for audio download
-      tags: [Audio]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GenerateDownloadUrlRequest'
-      responses:
-        '200':
-          description: Download URL generated successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DownloadUrlResponse'
-        '400':
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: Forbidden - file not accessible
+          description: Forbidden - cannot access another user's resources
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /audio/metadata:
-    post:
-      operationId: getAudioMetadata
-      summary: Get audio file metadata
-      tags: [Audio]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GetMetadataRequest'
-      responses:
-        '200':
-          description: Metadata retrieved successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MetadataResponse'
-        '400':
-          description: Bad request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Forbidden - file not accessible
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /audio/files/{audioFileKey}:
+  /users/{userId}/audio:
     get:
-      operationId: getAudioFileUrl
-      summary: Get download URL for specific audio file
+      operationId: listUserAudio
+      summary: List user's audio files
       tags: [Audio]
       parameters:
-        - name: audioFileKey
+        - name: userId
           in: path
           required: true
           schema:
             type: string
-          description: The audio file key (URL encoded)
+            format: uuid
+          description: User UUID
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Maximum number of items to return
+        - name: lastEvaluatedKey
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Pagination token for next page
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [UPLOADED, PROCESSING, PROCESSED, FAILED]
+          description: Filter by audio status
       responses:
         '200':
-          description: Download URL retrieved successfully
+          description: Audio files retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DownloadUrlResponse'
+                $ref: '#/components/schemas/ListAudioResponse'
         '400':
           description: Bad request
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: Forbidden - file not accessible
+          description: Forbidden - cannot access another user's resources
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/{userId}/audio/{audioId}:
+    get:
+      operationId: getUserAudio
+      summary: Get user's audio file details and download URL
+      tags: [Audio]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User UUID
+        - name: audioId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Audio UUID
+      responses:
+        '200':
+          description: Audio details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetAudioResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - cannot access another user's resources
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Audio file not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
     delete:
-      operationId: deleteAudioFile
-      summary: Delete audio file
+      operationId: deleteUserAudio
+      summary: Delete user's audio file
       tags: [Audio]
       parameters:
-        - name: audioFileKey
+        - name: userId
           in: path
           required: true
           schema:
             type: string
-          description: The audio file key (URL encoded)
+            format: uuid
+          description: User UUID
+        - name: audioId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Audio UUID
       responses:
         '200':
           description: Audio file deleted successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DeleteResponse'
+                $ref: '#/components/schemas/DeleteAudioResponse'
         '400':
           description: Bad request
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: Forbidden - file not accessible
+          description: Forbidden - cannot access another user's resources
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Audio file not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/{userId}/audio/{audioId}/process:
+    post:
+      operationId: processUserAudio
+      summary: Start processing user's audio file
+      tags: [Audio]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User UUID
+        - name: audioId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Audio UUID
+      responses:
+        '200':
+          description: Audio processing started successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessAudioResponse'
+        '400':
+          description: Bad request or audio not in processable state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - cannot access another user's resources
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Audio file not found
           content:
             application/json:
               schema:
@@ -542,22 +647,24 @@ components:
       required: [status, service, version]
 
     # Audio Schemas
-    GenerateUploadUrlRequest:
+    CreateAudioRequest:
       type: object
       properties:
         fileName:
           type: string
           description: Name of the audio file
           example: my-audio.mp3
+          maxLength: 255
         contentType:
           type: string
           description: MIME type of the audio file
-          enum: [audio/mpeg, audio/wav, audio/m4a, audio/webm]
+          enum: [audio/mpeg, audio/mp3, audio/mp4, audio/m4a, audio/wav, audio/wave, audio/x-wav, audio/webm, audio/ogg, audio/flac, audio/aac]
           example: audio/mpeg
         duration:
           type: number
           description: Duration in seconds (optional)
           minimum: 0
+          maximum: 600
           example: 30
         fileSize:
           type: number
@@ -566,17 +673,19 @@ components:
           maximum: 104857600
           example: 1048576
       required: [fileName, contentType]
+      additionalProperties: false
 
-    UploadUrlResponse:
+    CreateAudioResponse:
       type: object
       properties:
         success:
           type: boolean
           example: true
-        audioFileKey:
+        audioId:
           type: string
-          description: Unique key for the uploaded file
-          example: audio-files/user123/audio_20231201_143022.mp3
+          format: uuid
+          description: Unique identifier for the audio file
+          example: 550e8400-e29b-41d4-a716-446655440000
         uploadUrl:
           type: string
           format: uri
@@ -585,33 +694,76 @@ components:
           type: number
           description: URL expiration time in seconds
           example: 3600
-        maxFileSize:
-          type: number
-          description: Maximum allowed file size in bytes
-          example: 104857600
-        supportedFormats:
-          type: array
-          items:
-            type: string
-          description: List of supported audio formats
-          example: [audio/mpeg, audio/wav, audio/m4a, audio/webm]
-      required: [success, audioFileKey, uploadUrl, expiresIn, maxFileSize, supportedFormats]
+      required: [success, audioId, uploadUrl, expiresIn]
 
-    GenerateDownloadUrlRequest:
+    AudioFile:
       type: object
       properties:
-        audioFileKey:
+        id:
           type: string
-          description: The audio file key to download
-          example: audio-files/user123/audio_20231201_143022.mp3
-      required: [audioFileKey]
+          format: uuid
+          description: Audio file UUID
+        fileName:
+          type: string
+          description: Original file name
+        contentType:
+          type: string
+          description: MIME type of the audio file
+        fileSize:
+          type: number
+          description: File size in bytes
+        duration:
+          type: number
+          description: Duration in seconds (optional)
+        status:
+          type: string
+          enum: [UPLOADED, PROCESSING, PROCESSED, FAILED]
+          description: Processing status
+        uploadedAt:
+          type: string
+          format: date-time
+          description: Upload timestamp
+        processedAt:
+          type: string
+          format: date-time
+          description: Processing completion timestamp (optional)
+        transcriptionId:
+          type: string
+          format: uuid
+          description: Transcription job ID (optional)
+        processingError:
+          type: string
+          description: Error message if processing failed (optional)
+      required: [id, fileName, contentType, fileSize, status, uploadedAt]
 
-    DownloadUrlResponse:
+    ListAudioResponse:
       type: object
       properties:
         success:
           type: boolean
           example: true
+        audioFiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/AudioFile'
+          description: List of audio files
+        lastEvaluatedKey:
+          type: string
+          description: Pagination token for next page (optional)
+        totalCount:
+          type: number
+          description: Total number of audio files for the user
+          example: 42
+      required: [success, audioFiles, totalCount]
+
+    GetAudioResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        audio:
+          $ref: '#/components/schemas/AudioFile'
         downloadUrl:
           type: string
           format: uri
@@ -620,43 +772,9 @@ components:
           type: number
           description: URL expiration time in seconds
           example: 3600
-      required: [success, downloadUrl, expiresIn]
+      required: [success, audio, downloadUrl, expiresIn]
 
-    GetMetadataRequest:
-      type: object
-      properties:
-        audioFileKey:
-          type: string
-          description: The audio file key to get metadata for
-          example: audio-files/user123/audio_20231201_143022.mp3
-      required: [audioFileKey]
-
-    MetadataResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-          example: true
-        metadata:
-          type: object
-          properties:
-            contentType:
-              type: string
-              example: audio/mpeg
-            size:
-              type: number
-              example: 1048576
-            lastModified:
-              type: string
-              format: date-time
-            duration:
-              type: number
-              description: Duration in seconds
-              example: 30
-          required: [contentType, size, lastModified]
-      required: [success, metadata]
-
-    DeleteResponse:
+    DeleteAudioResponse:
       type: object
       properties:
         success:
@@ -666,6 +784,25 @@ components:
           type: string
           example: Audio file deleted successfully
       required: [success, message]
+
+    ProcessAudioResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Audio processing started successfully
+        transcriptionId:
+          type: string
+          format: uuid
+          description: Unique identifier for the transcription job
+        status:
+          type: string
+          enum: [PROCESSING]
+          description: New processing status
+      required: [success, message, transcriptionId, status]
 
     # User Schemas
     CreateUserRequest:

@@ -29,7 +29,7 @@ export class DynamoDBAudioRepository implements IAudioRepository {
 
   async save(audio: Audio): Promise<void> {
     const item = this.audioMapper.toDynamoDB(audio);
-    
+
     await this.dynamoDB.send(
       new PutCommand({
         TableName: this.tableName,
@@ -66,7 +66,7 @@ export class DynamoDBAudioRepository implements IAudioRepository {
     }
 
     const audio = this.audioMapper.toDomain(result.Item as AudioDynamoDBItem);
-    
+
     // Verify audio belongs to the user
     if (!audio.belongsToUser(userId)) {
       return null;
@@ -76,8 +76,8 @@ export class DynamoDBAudioRepository implements IAudioRepository {
   }
 
   async findByUserId(
-    userId: UserId, 
-    limit?: number, 
+    userId: UserId,
+    limit?: number,
     lastEvaluatedKey?: string
   ): Promise<{
     items: Audio[];
@@ -103,22 +103,22 @@ export class DynamoDBAudioRepository implements IAudioRepository {
 
     const result = await this.dynamoDB.send(new QueryCommand(params));
 
-    const items = (result.Items || []).map(item => 
+    const items = (result.Items || []).map((item) =>
       this.audioMapper.toDomain(item as AudioDynamoDBItem)
     );
 
     return {
       items,
-      lastEvaluatedKey: result.LastEvaluatedKey 
-        ? JSON.stringify(result.LastEvaluatedKey) 
+      lastEvaluatedKey: result.LastEvaluatedKey
+        ? JSON.stringify(result.LastEvaluatedKey)
         : undefined,
     };
   }
 
   async findByUserIdAndStatus(
-    userId: UserId, 
-    status: string, 
-    limit?: number, 
+    userId: UserId,
+    status: string,
+    limit?: number,
     lastEvaluatedKey?: string
   ): Promise<{
     items: Audio[];
@@ -148,32 +148,30 @@ export class DynamoDBAudioRepository implements IAudioRepository {
 
     const result = await this.dynamoDB.send(new QueryCommand(params));
 
-    const items = (result.Items || []).map(item => 
+    const items = (result.Items || []).map((item) =>
       this.audioMapper.toDomain(item as AudioDynamoDBItem)
     );
 
     return {
       items,
-      lastEvaluatedKey: result.LastEvaluatedKey 
-        ? JSON.stringify(result.LastEvaluatedKey) 
+      lastEvaluatedKey: result.LastEvaluatedKey
+        ? JSON.stringify(result.LastEvaluatedKey)
         : undefined,
     };
   }
 
   async update(audio: Audio): Promise<void> {
     const item = this.audioMapper.toDynamoDB(audio);
-    
+
     // Create update expression dynamically based on changed fields
     const updateExpression: string[] = [];
     const expressionAttributeNames: Record<string, string> = {};
     const expressionAttributeValues: Record<string, any> = {};
 
     // Fields that can be updated
-    const updatableFields = [
-      'status', 'transcriptionId', 'processingError', 'processedAt'
-    ];
+    const updatableFields = ['status', 'transcriptionId', 'processingError', 'processedAt'];
 
-    updatableFields.forEach(field => {
+    updatableFields.forEach((field) => {
       if (item[field as keyof AudioDynamoDBItem] !== undefined) {
         updateExpression.push(`#${field} = :${field}`);
         expressionAttributeNames[`#${field}`] = field;
@@ -261,13 +259,10 @@ export class DynamoDBAudioRepository implements IAudioRepository {
     params.ExpressionAttributeValues[':uploadedStatus'] = AudioStatus.FAILED;
     const failedResult = await this.dynamoDB.send(new QueryCommand(params));
 
-    const allItems = [
-      ...(uploadedResult.Items || []),
-      ...(failedResult.Items || []),
-    ];
+    const allItems = [...(uploadedResult.Items || []), ...(failedResult.Items || [])];
 
     return allItems
-      .map(item => this.audioMapper.toDomain(item as AudioDynamoDBItem))
+      .map((item) => this.audioMapper.toDomain(item as AudioDynamoDBItem))
       .slice(0, limit); // Apply overall limit
   }
 }
