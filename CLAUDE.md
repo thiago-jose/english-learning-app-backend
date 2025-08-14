@@ -225,3 +225,67 @@ GSI: StatusIndex (status + uploadedAt) - System processing queries
 - **Service Consolidation**: Reduced module loading and initialization overhead
 - **Type Compilation**: Compile-time type checking prevents runtime errors
 - **S3 Key Efficiency**: Direct S3 key management without redundant transformations
+
+## User System Architecture (✅ FULLY IMPLEMENTED)
+
+### User Service Consolidation (✅ PRODUCTION READY)
+- **Status**: ✅ **Service Pattern Complete** - Consolidated UseCase pattern into unified UserService
+- **Architecture**: Service layer pattern following AudioService reference implementation
+- **Type Safety**: Full OpenAPI type integration with generated TypeScript definitions
+- **Access Control**: Centralized user access validation and error handling
+
+### User Domain Model (✅ IMPLEMENTED)
+```typescript
+User {
+  id: string            // UUID from Cognito
+  email: string         // User email address
+  name: string          // User display name
+  createdAt: Date       // Profile creation timestamp
+  updatedAt: Date       // Last profile update timestamp
+}
+```
+
+### User API Endpoints (✅ DEPLOYED)
+```
+GET    /users                              # List all users (admin-level)
+POST   /users                              # Create user profile from JWT claims
+GET    /users/{userId}                     # Get user profile
+PUT    /users/{userId}                     # Update user profile
+DELETE /users/{userId}                     # Delete user profile
+POST   /users/{userId}/change-password     # Change user password (Cognito)
+DELETE /users/{userId}/account             # Delete user account (Cognito + profile)
+POST   /users/signup                       # Sign up new user (Cognito)
+POST   /users/confirm                      # Confirm user signup (Cognito)
+```
+
+### UserService Implementation (✅ CONSOLIDATED)
+- **Single Service**: Consolidated CreateUserUseCase into unified `UserService`
+- **Type Integration**: Uses generated OpenAPI types for request/response validation
+- **Access Control**: Centralized user isolation validation (users can only access own data)
+- **Error Handling**: Proper business logic with appropriate HTTP status codes
+- **Validation**: Email format, name length, and duplicate email validation
+
+### Service Pattern Benefits
+- **Consistent Architecture**: Matches AudioService consolidation pattern
+- **Centralized Business Logic**: All user profile operations in one place
+- **Type Safety**: Uses OpenAPI generated types for compile-time validation
+- **Access Control**: Centralized user isolation logic prevents cross-user access
+- **Testability**: Easier to unit test business logic in isolation
+- **Reusability**: Service can be used by multiple controllers or contexts
+
+### Removed Legacy Components
+- **✅ CreateUserUseCase.ts**: Consolidated into UserService.createUser()
+- **Note**: GetUserWordsUseCase.ts remains (word-related, not user profile operations)
+
+### Controller Integration (✅ COMPLETE)
+- **Error Handling**: Comprehensive error mapping with appropriate HTTP status codes
+- **Type Safety**: All request/response objects use generated `components['schemas']` types
+- **Access Validation**: Service-level user isolation prevents unauthorized access
+- **Cognito Integration**: Password changes and account deletion use Cognito Admin APIs
+
+### Key Architectural Achievements
+- **Service Consolidation**: Single UserService replacing scattered UseCase pattern
+- **Type Safety**: End-to-end type safety from OpenAPI to implementation
+- **Access Control**: Centralized user isolation with proper 403/404 error handling
+- **Pattern Consistency**: Matches AudioService architecture for maintainability
+- **Business Logic Centralization**: All user profile logic consolidated in service layer

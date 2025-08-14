@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { CreateUserUseCase } from '../../../../application/use-cases/CreateUserUseCase';
+import { UserService } from '../../../../application/services/UserService';
 import { DynamoDBUserRepository } from '../../../../infrastructure/repositories/DynamoDBUserRepository';
 import { UserMapper } from '../../../../infrastructure/mappers/UserMapper';
 import { User } from '../../../../domain/entities/User';
@@ -31,7 +31,7 @@ type HealthResponse = operations['getHealth']['responses']['200']['content']['ap
 
 const userMapper = new UserMapper();
 const userRepository = new DynamoDBUserRepository(process.env.USERS_TABLE_NAME || '', userMapper);
-const createUserUseCase = new CreateUserUseCase(userRepository);
+const userService = new UserService(userRepository);
 
 // Cognito client for user management
 const cognitoClient = new CognitoIdentityProviderClient({
@@ -474,7 +474,10 @@ async function handleDeleteUserAccount(
     }
 
     // Also delete local user profile
-    await userRepository.delete(authenticatedUser.userId);
+    await userService.deleteUser({
+      userId: authenticatedUser.userId,
+      requestingUserId: authenticatedUser.userId,
+    });
 
     const response: MessageResponse = {
       message: 'Account deleted successfully',
@@ -542,26 +545,44 @@ async function handleCreateUserProfile(
       `Creating user from Cognito claims: ${userData.email} (${authenticatedUser.provider})`
     );
 
-    const user = await createUserUseCase.execute(userData);
-
-    const userJson = user.toJSON();
-    const response: UserResponse = {
-      ...userJson,
-      createdAt: userJson.createdAt.toISOString(),
-      updatedAt: userJson.updatedAt.toISOString(),
-    };
+    const response = await userService.createUser(userData);
 
     return {
       statusCode: 201,
       headers,
       body: JSON.stringify(response),
     };
-  } catch (authError) {
-    console.error('Authentication error in createUser:', authError);
+  } catch (error) {
+    console.error('Error in createUser:', error);
+
+    if (error instanceof Error) {
+      if (error.message.includes('already exists')) {
+        return {
+          statusCode: 409,
+          headers,
+          body: JSON.stringify({ error: error.message }),
+        };
+      }
+      if (error.message.includes('required') || error.message.includes('Invalid')) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ error: error.message }),
+        };
+      }
+      if (error.message.includes('Authentication')) {
+        return {
+          statusCode: 401,
+          headers,
+          body: JSON.stringify({ error: 'Authentication required' }),
+        };
+      }
+    }
+
     return {
-      statusCode: 401,
+      statusCode: 500,
       headers,
-      body: JSON.stringify({ error: 'Authentication required' }),
+      body: JSON.stringify({ error: 'Internal server error' }),
     };
   }
 }
@@ -596,42 +617,47 @@ async function handleGetUserById(
       console.warn('Using fallback user ID extraction:', userId);
     }
 
-    // Users can only access their own profile (for privacy/security)
-    if (userId !== requestedUserId) {
-      return {
-        statusCode: 403,
-        headers,
-        body: JSON.stringify({ error: 'Access denied. You can only access your own profile.' }),
-      };
-    }
-
-    const user = await userRepository.findById(requestedUserId);
-    if (!user) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ error: 'User not found' }),
-      };
-    }
-
-    const userJson = user.toJSON();
-    const response: UserResponse = {
-      ...userJson,
-      createdAt: userJson.createdAt.toISOString(),
-      updatedAt: userJson.updatedAt.toISOString(),
-    };
+    const response = await userService.getUser({
+      userId: requestedUserId,
+      requestingUserId: userId,
+    });
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify(response),
     };
-  } catch (authError) {
-    console.error('Authentication error in getUserById:', authError);
+  } catch (error) {
+    console.error('Error in getUserById:', error);
+
+    if (error instanceof Error) {
+      if (error.message.includes('not found')) {
+        return {
+          statusCode: 404,
+          headers,
+          body: JSON.stringify({ error: error.message }),
+        };
+      }
+      if (error.message.includes('Access denied')) {
+        return {
+          statusCode: 403,
+          headers,
+          body: JSON.stringify({ error: error.message }),
+        };
+      }
+      if (error.message.includes('Authentication')) {
+        return {
+          statusCode: 401,
+          headers,
+          body: JSON.stringify({ error: 'Authentication required' }),
+        };
+      }
+    }
+
     return {
-      statusCode: 401,
+      statusCode: 500,
       headers,
-      body: JSON.stringify({ error: 'Authentication required' }),
+      body: JSON.stringify({ error: 'Internal server error' }),
     };
   }
 }
@@ -654,27 +680,33 @@ async function handleGetAllUsers(event: APIGatewayProxyEvent): Promise<APIGatewa
       console.warn('Using fallback user ID extraction for get all users:', userId);
     }
 
-    const users = await userRepository.findAll();
-    const response = users.map((user) => {
-      const userJson = user.toJSON();
-      return {
-        ...userJson,
-        createdAt: userJson.createdAt.toISOString(),
-        updatedAt: userJson.updatedAt.toISOString(),
-      };
+    const result = await userService.listUsers({
+      requestingUserId: userId,
     });
+    const response = result.users;
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify(response),
     };
-  } catch (authError) {
-    console.error('Authentication error in getAllUsers:', authError);
+  } catch (error) {
+    console.error('Error in getAllUsers:', error);
+
+    if (error instanceof Error) {
+      if (error.message.includes('Authentication') || error.message.includes('required')) {
+        return {
+          statusCode: 401,
+          headers,
+          body: JSON.stringify({ error: 'Authentication required' }),
+        };
+      }
+    }
+
     return {
-      statusCode: 401,
+      statusCode: 500,
       headers,
-      body: JSON.stringify({ error: 'Authentication required' }),
+      body: JSON.stringify({ error: 'Internal server error' }),
     };
   }
 }
@@ -709,14 +741,6 @@ async function handleUpdateUser(
       console.warn('Using fallback user ID extraction for update user:', userId);
     }
 
-    if (userId !== requestedUserId) {
-      return {
-        statusCode: 403,
-        headers,
-        body: JSON.stringify({ error: 'Access denied. You can only update your own profile.' }),
-      };
-    }
-
     if (!event.body) {
       return {
         statusCode: 400,
@@ -726,38 +750,62 @@ async function handleUpdateUser(
     }
 
     const requestBody: UpdateUserRequest = JSON.parse(event.body);
-    const existingUser = await userRepository.findById(requestedUserId);
-    if (!existingUser) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ error: 'User not found' }),
-      };
-    }
-
-    // Create updated user using the static method
-    const updatedUser = await userRepository.update(
-      User.fromUpdate(existingUser, { ...requestBody, id: requestedUserId })
-    );
-
-    const userJson = updatedUser.toJSON();
-    const response: UserResponse = {
-      ...userJson,
-      createdAt: userJson.createdAt.toISOString(),
-      updatedAt: userJson.updatedAt.toISOString(),
-    };
+    const response = await userService.updateUser({
+      userId: requestedUserId,
+      requestingUserId: userId,
+      data: requestBody,
+    });
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify(response),
     };
-  } catch (authError) {
-    console.error('Authentication error in updateUser:', authError);
+  } catch (error) {
+    console.error('Error in updateUser:', error);
+
+    if (error instanceof Error) {
+      if (error.message.includes('not found')) {
+        return {
+          statusCode: 404,
+          headers,
+          body: JSON.stringify({ error: error.message }),
+        };
+      }
+      if (error.message.includes('Access denied')) {
+        return {
+          statusCode: 403,
+          headers,
+          body: JSON.stringify({ error: error.message }),
+        };
+      }
+      if (error.message.includes('already in use') || error.message.includes('Email already')) {
+        return {
+          statusCode: 409,
+          headers,
+          body: JSON.stringify({ error: error.message }),
+        };
+      }
+      if (error.message.includes('required') || error.message.includes('Invalid')) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ error: error.message }),
+        };
+      }
+      if (error.message.includes('Authentication')) {
+        return {
+          statusCode: 401,
+          headers,
+          body: JSON.stringify({ error: 'Authentication required' }),
+        };
+      }
+    }
+
     return {
-      statusCode: 401,
+      statusCode: 500,
       headers,
-      body: JSON.stringify({ error: 'Authentication required' }),
+      body: JSON.stringify({ error: 'Internal server error' }),
     };
   }
 }
@@ -792,35 +840,46 @@ async function handleDeleteUserProfile(
       console.warn('Using fallback user ID extraction for delete user:', userId);
     }
 
-    if (userId !== requestedUserId) {
-      return {
-        statusCode: 403,
-        headers,
-        body: JSON.stringify({ error: 'Access denied. You can only delete your own profile.' }),
-      };
-    }
-
-    const existingUser = await userRepository.findById(requestedUserId);
-    if (!existingUser) {
-      return {
-        statusCode: 404,
-        headers,
-        body: JSON.stringify({ error: 'User not found' }),
-      };
-    }
-
-    await userRepository.delete(requestedUserId);
+    await userService.deleteUser({
+      userId: requestedUserId,
+      requestingUserId: userId,
+    });
     return {
       statusCode: 204,
       headers,
       body: '',
     };
-  } catch (authError) {
-    console.error('Authentication error in deleteUser:', authError);
+  } catch (error) {
+    console.error('Error in deleteUser:', error);
+
+    if (error instanceof Error) {
+      if (error.message.includes('not found')) {
+        return {
+          statusCode: 404,
+          headers,
+          body: JSON.stringify({ error: error.message }),
+        };
+      }
+      if (error.message.includes('Access denied')) {
+        return {
+          statusCode: 403,
+          headers,
+          body: JSON.stringify({ error: error.message }),
+        };
+      }
+      if (error.message.includes('Authentication')) {
+        return {
+          statusCode: 401,
+          headers,
+          body: JSON.stringify({ error: 'Authentication required' }),
+        };
+      }
+    }
+
     return {
-      statusCode: 401,
+      statusCode: 500,
       headers,
-      body: JSON.stringify({ error: 'Authentication required' }),
+      body: JSON.stringify({ error: 'Internal server error' }),
     };
   }
 }
