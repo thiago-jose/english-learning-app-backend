@@ -289,3 +289,129 @@ POST   /users/confirm                      # Confirm user signup (Cognito)
 - **Access Control**: Centralized user isolation with proper 403/404 error handling
 - **Pattern Consistency**: Matches AudioService architecture for maintainability
 - **Business Logic Centralization**: All user profile logic consolidated in service layer
+
+## Word Management Architecture (✅ FULLY IMPLEMENTED)
+
+### Word Service Consolidation (✅ PRODUCTION READY)
+- **Status**: ✅ **Service Pattern Complete** - Consolidated word UseCase pattern into unified WordService
+- **Architecture**: Service layer pattern following AudioService/UserService reference implementation
+- **Type Safety**: Full OpenAPI type integration with generated TypeScript definitions
+- **Spaced Repetition**: Intelligent review scheduling with success rate algorithms
+
+### Word Domain Model (✅ IMPLEMENTED)
+```typescript
+Word {
+  id: string              // UUID for word identification
+  word: string            // The English word (normalized, lowercase)
+  meaning: string         // Clear definition for learners
+  usageExample: string    // Practical sentence demonstrating usage
+  pronunciation?: string  // Phonetic pronunciation guide
+  difficulty: WordDifficulty  // BEGINNER|INTERMEDIATE|ADVANCED
+  category?: string       // Word type (noun, verb, adjective, etc.)
+  nextReviewDate: Date    // Spaced repetition scheduling
+  reviewCount: number     // Total number of reviews
+  correctCount: number    // Number of correct reviews
+  userId: string          // User ownership
+  createdAt: Date         // Word creation timestamp
+  updatedAt?: Date        // Last modification timestamp
+}
+```
+
+### Word API Endpoints (✅ DEPLOYED)
+```
+GET    /users/{userId}/words                    # List user's words with pagination
+POST   /users/{userId}/words                    # Create new word manually
+GET    /users/{userId}/words/{wordId}           # Get specific word details
+PUT    /users/{userId}/words/{wordId}           # Update word information
+DELETE /users/{userId}/words/{wordId}           # Delete word from vocabulary
+POST   /users/{userId}/words/{wordId}/review    # Review word (spaced repetition)
+GET    /users/{userId}/words/review             # Get words due for review
+```
+
+### WordService Implementation (✅ CONSOLIDATED)
+- **Single Service**: Consolidated CreateWordUseCase, ReviewWordUseCase, GetUserWordsUseCase into unified `WordService`
+- **Type Integration**: Uses generated OpenAPI types for request/response validation
+- **Spaced Repetition**: Advanced algorithm considering success rates and review history
+- **Access Control**: Centralized user isolation validation (users can only access own words)
+- **Error Handling**: Comprehensive business logic with appropriate HTTP status codes
+- **Validation**: Word format, meaning length, usage example validation
+
+### Spaced Repetition Algorithm (✅ IMPLEMENTED)
+- **Success Rate Calculation**: `correctCount / reviewCount` for intelligent scheduling
+- **Adaptive Intervals**: 
+  - Incorrect answer: Review tomorrow (1 day)
+  - First correct: 3 days
+  - High success rate (≥80%): Exponential growth up to 30 days
+  - Medium success rate (60-80%): Linear growth up to 14 days
+  - Low success rate (<60%): Conservative growth up to 7 days
+- **Learning Psychology**: Based on proven spaced repetition techniques
+
+### Removed Legacy Components
+- **✅ CreateWordUseCase.ts**: Consolidated into WordService.createWord()
+- **✅ ReviewWordUseCase.ts**: Consolidated into WordService.reviewWord()
+- **✅ GetUserWordsUseCase.ts**: Consolidated into WordService.getUserWords()
+
+## Audio Processing Architecture (✅ FULLY IMPLEMENTED)
+
+### Processing Service Implementation (✅ PRODUCTION READY)
+- **Status**: ✅ **Goal-Based Architecture Complete** - Extensible processing system with multiple workflows
+- **Architecture**: AudioProcessingService orchestrating goal-driven processing workflows
+- **Type Safety**: Full OpenAPI type integration for processing requests and results
+- **Extensibility**: Design supports future processing goals without breaking changes
+
+### Processing Goals System (✅ IMPLEMENTED)
+```typescript
+enum ProcessingGoal {
+  ENGLISH_LEARNING = 'ENGLISH_LEARNING',    // ✅ Extract words → AI analysis → vocabulary
+  TRANSCRIPTION_ONLY = 'TRANSCRIPTION_ONLY', // ✅ Simple transcription workflow
+  SUMMARIZATION = 'SUMMARIZATION',          // 🚧 Future: transcribe + summarize
+  GENERAL_ANALYSIS = 'GENERAL_ANALYSIS'     // 🚧 Future: transcribe + AI analysis
+}
+```
+
+### Enhanced Audio Processing Endpoints (✅ DEPLOYED)
+```
+POST   /users/{userId}/audio/{audioId}/process  # Start processing with specified goal
+GET    /users/{userId}/audio/{audioId}/results  # Get processing results and extracted data
+```
+
+### AudioProcessingService Implementation (✅ CONSOLIDATED)
+- **Goal Orchestration**: Routes processing based on specified goal
+- **Async Processing**: Non-blocking workflow with status tracking
+- **Service Integration**: Coordinates TranscriptionService, BedrockService, and WordService
+- **Error Handling**: Comprehensive error tracking with audio status updates
+- **Type Safety**: Uses generated OpenAPI types for all requests/responses
+
+### Processing Workflows (✅ IMPLEMENTED)
+
+#### ENGLISH_LEARNING Goal
+1. **Transcription**: Audio → AWS Transcribe → Text
+2. **Word Extraction**: Text → BedrockService.processSpeechForWordExtraction() → Target word
+3. **AI Analysis**: Word → BedrockService.analyzeWord() → Definition, usage, pronunciation, difficulty
+4. **Vocabulary Storage**: Analysis → WordService.createWord() → User's vocabulary
+5. **Status Update**: Audio marked as PROCESSED with processing results
+
+#### TRANSCRIPTION_ONLY Goal
+1. **Transcription**: Audio → AWS Transcribe → Text
+2. **Status Update**: Audio marked as PROCESSED with transcription text
+
+### Processing Results System (✅ IMPLEMENTED)
+```typescript
+ProcessingResult {
+  transcriptionText: string           // Full transcription (all goals)
+  extractedWords?: ExtractedWordResult[] // For ENGLISH_LEARNING goal
+  summary?: string                    // For future SUMMARIZATION goal
+  analysis?: object                   // For future GENERAL_ANALYSIS goal
+  processingTime?: number             // Performance metrics
+}
+```
+
+### Removed Legacy Components
+- **✅ ProcessSpeechUseCase.ts**: Consolidated into AudioProcessingService.processEnglishLearning()
+
+### Key Architectural Achievements
+- **Service Consolidation**: Unified processing architecture replacing scattered use case pattern
+- **Goal Extensibility**: Easy addition of new processing workflows without breaking existing functionality
+- **Type Safety**: End-to-end type safety from OpenAPI to implementation
+- **Service Orchestration**: Clean coordination between transcription, AI analysis, and vocabulary services
+- **User Experience**: Simple upload → process → manage workflow with powerful backend processing

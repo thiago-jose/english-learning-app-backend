@@ -1,10 +1,18 @@
 # Project Status: English Learning App Backend
 
-## 🚀 **Current State (2025-08-14): User Service Consolidation Complete - Architecture Consistency Achieved**
+## 🚀 **Current State (2025-08-14): Complete Processing Architecture Refactoring - Production Ready**
 
-This backend service has completed user service consolidation following the AudioService pattern, achieving architectural consistency across all domain services. Both Audio and User systems now follow the same service layer pattern with OpenAPI type integration, centralized business logic, and comprehensive error handling.
+This backend service has completed a comprehensive refactoring of all domain services (Audio, User, Word management, and Processing), implementing a unified service layer architecture with goal-based audio processing, complete word management system, and extensible processing workflows. The system now provides a complete end-to-end English learning experience with consistent API patterns.
 
-## 📋 **Latest Update: User Service Consolidation Complete ✅**
+## 📋 **Latest Update: Processing & Words Management Refactoring Complete ✅**
+- **✅ WordService Implementation**: Consolidated word use cases into unified service with spaced repetition
+- **✅ AudioProcessingService**: Goal-based processing architecture with extensible workflow support
+- **✅ Complete Word API**: Full CRUD operations with user-scoped endpoints and review system
+- **✅ Enhanced Audio Processing**: Goal-driven processing with ENGLISH_LEARNING, TRANSCRIPTION_ONLY, and future goals
+- **✅ OpenAPI Integration**: Complete API specification with all new endpoints and schemas
+- **✅ Legacy Cleanup**: Removed old use case files (CreateWordUseCase, ReviewWordUseCase, ProcessSpeechUseCase)
+
+## 📋 **Previous Update: User Service Consolidation Complete ✅**
 - **✅ UserService Implementation**: Consolidated CreateUserUseCase into unified UserService
 - **✅ Architecture Consistency**: User management now matches AudioService pattern  
 - **✅ Type Safety**: Full OpenAPI type integration for user operations
@@ -122,11 +130,18 @@ POST   /users/{userId}/audio/{audioId}/process # Start audio processing workflow
 - **Architecture**: Service pattern matching AudioService for consistency ✅
 
 ### 3. Word Management System ✅
-**Status**: Complete implementation, ready for deployment
-- **Domain**: `Word` entity with difficulty levels, pronunciation, usage examples
-- **Use Cases**: Create, retrieve, and review word operations
+**Status**: Production-ready with complete service consolidation and spaced repetition
+- **Domain**: `Word` entity with difficulty levels, pronunciation, usage examples, spaced repetition
+- **Service Layer**: ✅ **NEW** Consolidated WordService replacing all word use cases
+- **API**: ✅ **NEW** Complete user-scoped RESTful endpoints deployed
+- **Features**: 
+  - Full CRUD operations with user isolation ✅
+  - Spaced repetition algorithm with intelligent review scheduling ✅
+  - Word difficulty classification (BEGINNER/INTERMEDIATE/ADVANCED) ✅
+  - Phonetic pronunciation support ✅
+  - Usage examples and categories ✅
 - **Repository**: `DynamoDBWordRepository` with full CRUD operations
-- **API**: RESTful endpoints implemented but not deployed
+- **OpenAPI Integration**: Complete type safety with generated schemas ✅
 - **Tests**: Comprehensive unit and integration tests ✅
 
 ### 4. Transcription System ✅
@@ -136,7 +151,28 @@ POST   /users/{userId}/audio/{audioId}/process # Start audio processing workflow
 - **Features**: Real-time job monitoring, speaker labels, error handling
 - **Repository**: `DynamoDBTranscriptionRepository`
 
-### 5. User Progress Tracking ✅
+### 5. Audio Processing System ✅
+**Status**: ✅ **NEW** Production-ready with goal-based extensible architecture
+- **Service Layer**: AudioProcessingService with goal-driven workflows
+- **Processing Goals**:
+  - **ENGLISH_LEARNING**: ✅ Extract words → AI analysis → vocabulary storage
+  - **TRANSCRIPTION_ONLY**: ✅ Simple transcription without analysis
+  - **SUMMARIZATION**: 🚧 Future - transcribe + AI summarization
+  - **GENERAL_ANALYSIS**: 🚧 Future - transcribe + general AI insights
+- **Architecture Benefits**:
+  - Extensible goal system for future use cases ✅
+  - Centralized processing orchestration ✅
+  - Async processing with status tracking ✅
+  - Integration with WordService for vocabulary building ✅
+- **API Endpoints**:
+  - Enhanced `/users/{userId}/audio/{audioId}/process` with goal parameter ✅
+  - New `/users/{userId}/audio/{audioId}/results` for processing results ✅
+- **Infrastructure Integration**: 
+  - TranscriptionService (AWS Transcribe) ✅
+  - BedrockService (AI analysis) ✅
+  - WordService (vocabulary management) ✅
+
+### 6. User Progress Tracking ✅
 **Status**: Implemented, ready for deployment
 - **Domain**: `UserProgress` entity for learning statistics
 - **Features**: Tracks words learned, study streaks, total vocabulary

@@ -1,17 +1,11 @@
-import { APIGatewayProxyHandler } from 'aws-lambda';
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { DynamoDBWordRepository } from '../../../../infrastructure/repositories/DynamoDBWordRepository';
-import { CreateWordUseCase } from '../../../../application/use-cases/CreateWordUseCase';
-import { GetUserWordsUseCase } from '../../../../application/use-cases/GetUserWordsUseCase';
-import { ReviewWordUseCase } from '../../../../application/use-cases/ReviewWordUseCase';
-import { ProcessSpeechUseCase } from '../../../../application/use-cases/ProcessSpeechUseCase';
-import { BedrockService } from '../../../../infrastructure/services/BedrockService';
+import { WordService } from '../../../../application/services/WordService';
+import { getAuthenticatedUser } from '../../../utils/auth';
+import { WordDifficulty } from '../../../../domain/entities/Word';
 
 const wordRepository = new DynamoDBWordRepository(process.env.WORDS_TABLE_NAME || 'Words');
-const createWordUseCase = new CreateWordUseCase(wordRepository);
-const getUserWordsUseCase = new GetUserWordsUseCase(wordRepository);
-const reviewWordUseCase = new ReviewWordUseCase(wordRepository);
-const bedrockService = new BedrockService();
-const processSpeechUseCase = new ProcessSpeechUseCase(bedrockService, createWordUseCase);
+const wordService = new WordService(wordRepository);
 
 const headers = {
   'Access-Control-Allow-Origin': '*',
@@ -21,7 +15,7 @@ const headers = {
   'Content-Type': 'application/json',
 };
 
-export const handler: APIGatewayProxyHandler = async (event) => {
+export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> {
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 200,
@@ -31,36 +25,204 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   }
 
   try {
-    const userId = event.requestContext?.authorizer?.claims?.sub || 'anonymous';
+    // Route based on path and method for user-scoped endpoints
+    const path = event.path;
+    const method = event.httpMethod;
+    const pathParams = event.pathParameters || {};
 
-    switch (event.httpMethod) {
-      case 'POST':
-        return await handleCreateWord(event, userId);
-      case 'GET':
-        return await handleGetWords(event, userId);
-      case 'PUT':
-        return await handleReviewWord(event, userId);
-      default:
-        return {
-          statusCode: 405,
-          headers,
-          body: JSON.stringify({ error: 'Method not allowed' }),
-        };
+    // Extract authenticated user
+    const authenticatedUser = getAuthenticatedUser(event);
+    const userId = authenticatedUser.userId;
+
+    // User words endpoints: /users/{userId}/words
+    if (path.match(/^\/users\/[^\/]+\/words$/) && method === 'GET') {
+      return await handleGetUserWords(event, pathParams.userId!, userId);
+    } else if (path.match(/^\/users\/[^\/]+\/words$/) && method === 'POST') {
+      return await handleCreateWord(event, pathParams.userId!, userId);
     }
+
+    // Individual word endpoints: /users/{userId}/words/{wordId}
+    if (path.match(/^\/users\/[^\/]+\/words\/[^\/]+$/) && method === 'GET') {
+      return await handleGetWord(event, pathParams.userId!, pathParams.wordId!, userId);
+    } else if (path.match(/^\/users\/[^\/]+\/words\/[^\/]+$/) && method === 'PUT') {
+      return await handleUpdateWord(event, pathParams.userId!, pathParams.wordId!, userId);
+    } else if (path.match(/^\/users\/[^\/]+\/words\/[^\/]+$/) && method === 'DELETE') {
+      return await handleDeleteWord(event, pathParams.userId!, pathParams.wordId!, userId);
+    }
+
+    // Word review endpoint: /users/{userId}/words/{wordId}/review
+    if (path.match(/^\/users\/[^\/]+\/words\/[^\/]+\/review$/) && method === 'POST') {
+      return await handleReviewWord(event, pathParams.userId!, pathParams.wordId!, userId);
+    }
+
+    // Review words endpoint: /users/{userId}/words/review
+    if (path.match(/^\/users\/[^\/]+\/words\/review$/) && method === 'GET') {
+      return await handleGetWordsForReview(event, pathParams.userId!, userId);
+    }
+
+    // Route not found
+    return {
+      statusCode: 404,
+      headers,
+      body: JSON.stringify({ error: 'Endpoint not found' }),
+    };
   } catch (error) {
     console.error('Error in word handler:', error);
+    
+    if (error instanceof Error) {
+      if (error.message.includes('not found')) {
+        return {
+          statusCode: 404,
+          headers,
+          body: JSON.stringify({ error: error.message }),
+        };
+      }
+      if (error.message.includes('Access denied')) {
+        return {
+          statusCode: 403,
+          headers,
+          body: JSON.stringify({ error: error.message }),
+        };
+      }
+      if (error.message.includes('required') || error.message.includes('Invalid')) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ error: error.message }),
+        };
+      }
+      if (error.message.includes('Authentication')) {
+        return {
+          statusCode: 401,
+          headers,
+          body: JSON.stringify({ error: 'Authentication required' }),
+        };
+      }
+    }
+    
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      }),
+      body: JSON.stringify({ error: 'Internal server error' }),
     };
   }
-};
+}
 
-async function handleCreateWord(event: any, userId: string) {
+async function handleCreateWord(
+  event: APIGatewayProxyEvent,
+  requestedUserId: string,
+  authenticatedUserId: string
+): Promise<APIGatewayProxyResult> {
+  // Validate path parameter matches authenticated user
+  if (authenticatedUserId !== requestedUserId) {
+    return {
+      statusCode: 403,
+      headers,
+      body: JSON.stringify({ error: 'Access denied. You can only access your own words.' }),
+    };
+  }
+
+  if (!event.body) {
+    return {
+      statusCode: 400,
+      headers,
+      body: JSON.stringify({ error: 'Request body is required' }),
+    };
+  }
+
+  const body = JSON.parse(event.body);
+  const { word, meaning, usageExample, pronunciation, difficulty, category } = body;
+
+  const response = await wordService.createWord({
+    word,
+    meaning,
+    usageExample,
+    pronunciation,
+    difficulty,
+    category,
+    userId: authenticatedUserId,
+  });
+
+  return {
+    statusCode: 201,
+    headers,
+    body: JSON.stringify(response),
+  };
+}
+
+async function handleGetUserWords(
+  event: APIGatewayProxyEvent,
+  requestedUserId: string,
+  authenticatedUserId: string
+): Promise<APIGatewayProxyResult> {
+  // Validate path parameter matches authenticated user
+  if (authenticatedUserId !== requestedUserId) {
+    return {
+      statusCode: 403,
+      headers,
+      body: JSON.stringify({ error: 'Access denied. You can only access your own words.' }),
+    };
+  }
+
+  const queryParams = event.queryStringParameters || {};
+  const limit = queryParams.limit ? parseInt(queryParams.limit) : undefined;
+  const offset = queryParams.offset ? parseInt(queryParams.offset) : undefined;
+
+  const response = await wordService.getUserWords({
+    userId: authenticatedUserId,
+    limit,
+    offset,
+  });
+
+  return {
+    statusCode: 200,
+    headers,
+    body: JSON.stringify(response),
+  };
+}
+
+async function handleGetWord(
+  event: APIGatewayProxyEvent,
+  requestedUserId: string,
+  wordId: string,
+  authenticatedUserId: string
+): Promise<APIGatewayProxyResult> {
+  // Validate path parameter matches authenticated user
+  if (authenticatedUserId !== requestedUserId) {
+    return {
+      statusCode: 403,
+      headers,
+      body: JSON.stringify({ error: 'Access denied. You can only access your own words.' }),
+    };
+  }
+
+  const response = await wordService.getWord({
+    wordId,
+    userId: authenticatedUserId,
+  });
+
+  return {
+    statusCode: 200,
+    headers,
+    body: JSON.stringify(response),
+  };
+}
+
+async function handleUpdateWord(
+  event: APIGatewayProxyEvent,
+  requestedUserId: string,
+  wordId: string,
+  authenticatedUserId: string
+): Promise<APIGatewayProxyResult> {
+  // Validate path parameter matches authenticated user
+  if (authenticatedUserId !== requestedUserId) {
+    return {
+      statusCode: 403,
+      headers,
+      body: JSON.stringify({ error: 'Access denied. You can only access your own words.' }),
+    };
+  }
+
   if (!event.body) {
     return {
       statusCode: 400,
@@ -71,72 +233,58 @@ async function handleCreateWord(event: any, userId: string) {
 
   const body = JSON.parse(event.body);
 
-  // Check if this is a speech processing request
-  if (body.transcribedText) {
-    const result = await processSpeechUseCase.execute({
-      transcribedText: body.transcribedText,
-      userId,
-    });
-
-    return {
-      statusCode: result.success ? 201 : 400,
-      headers,
-      body: JSON.stringify(result),
-    };
-  }
-
-  // Regular word creation
-  const { word, meaning, usageExample, pronunciation, difficulty, category } = body;
-
-  if (!word || !meaning || !usageExample) {
-    return {
-      statusCode: 400,
-      headers,
-      body: JSON.stringify({ error: 'Word, meaning, and usageExample are required' }),
-    };
-  }
-
-  const newWord = await createWordUseCase.execute({
-    word,
-    meaning,
-    usageExample,
-    pronunciation,
-    difficulty,
-    category,
-    userId,
-  });
-
-  return {
-    statusCode: 201,
-    headers,
-    body: JSON.stringify(newWord),
-  };
-}
-
-async function handleGetWords(event: any, userId: string) {
-  const queryParams = event.queryStringParameters || {};
-  const forReview = queryParams.forReview === 'true';
-
-  const words = await getUserWordsUseCase.execute({
-    userId,
-    forReview,
+  const response = await wordService.updateWord({
+    wordId,
+    userId: authenticatedUserId,
+    data: body,
   });
 
   return {
     statusCode: 200,
     headers,
-    body: JSON.stringify(words),
+    body: JSON.stringify(response),
   };
 }
 
-async function handleReviewWord(event: any, userId: string) {
-  const wordId = event.pathParameters?.id;
-
-  if (!wordId) {
+async function handleDeleteWord(
+  event: APIGatewayProxyEvent,
+  requestedUserId: string,
+  wordId: string,
+  authenticatedUserId: string
+): Promise<APIGatewayProxyResult> {
+  // Validate path parameter matches authenticated user
+  if (authenticatedUserId !== requestedUserId) {
     return {
-      statusCode: 400,
+      statusCode: 403,
       headers,
-      body: JSON.stringify({ error: 'Word ID is required' }),
+      body: JSON.stringify({ error: 'Access denied. You can only access your own words.' }),
+    };
+  }
+
+  const response = await wordService.deleteWord({
+    wordId,
+    userId: authenticatedUserId,
+  });
+
+  return {
+    statusCode: 204,
+    headers,
+    body: '',
+  };
+}
+
+async function handleReviewWord(
+  event: APIGatewayProxyEvent,
+  requestedUserId: string,
+  wordId: string,
+  authenticatedUserId: string
+): Promise<APIGatewayProxyResult> {
+  // Validate path parameter matches authenticated user
+  if (authenticatedUserId !== requestedUserId) {
+    return {
+      statusCode: 403,
+      headers,
+      body: JSON.stringify({ error: 'Access denied. You can only access your own words.' }),
     };
   }
 
@@ -158,15 +306,48 @@ async function handleReviewWord(event: any, userId: string) {
     };
   }
 
-  const updatedWord = await reviewWordUseCase.execute({
+  const response = await wordService.reviewWord({
     wordId,
     isCorrect,
-    userId,
+    userId: authenticatedUserId,
   });
 
   return {
     statusCode: 200,
     headers,
-    body: JSON.stringify(updatedWord),
+    body: JSON.stringify(response),
+  };
+}
+
+async function handleGetWordsForReview(
+  event: APIGatewayProxyEvent,
+  requestedUserId: string,
+  authenticatedUserId: string
+): Promise<APIGatewayProxyResult> {
+  // Validate path parameter matches authenticated user
+  if (authenticatedUserId !== requestedUserId) {
+    return {
+      statusCode: 403,
+      headers,
+      body: JSON.stringify({ error: 'Access denied. You can only access your own words.' }),
+    };
+  }
+
+  const queryParams = event.queryStringParameters || {};
+  const limit = queryParams.limit ? parseInt(queryParams.limit) : undefined;
+  const offset = queryParams.offset ? parseInt(queryParams.offset) : undefined;
+  const reviewDate = queryParams.date ? new Date(queryParams.date) : undefined;
+
+  const response = await wordService.getWordsForReview({
+    userId: authenticatedUserId,
+    reviewDate,
+    limit,
+    offset,
+  });
+
+  return {
+    statusCode: 200,
+    headers,
+    body: JSON.stringify(response),
   };
 }

@@ -1,4 +1,4 @@
-import { APIGatewayProxyEvent, Context } from 'aws-lambda';
+import { APIGatewayProxyEvent } from 'aws-lambda';
 import { handler } from '../../index';
 
 // Mock the dependencies
@@ -6,20 +6,6 @@ jest.mock('../../../../../infrastructure/repositories/DynamoDBTranscriptionRepos
 jest.mock('../../../../../infrastructure/services/TranscriptionService');
 
 describe('Transcription Controller Integration Tests', () => {
-  const mockContext: Context = {
-    callbackWaitsForEmptyEventLoop: false,
-    functionName: 'test-function',
-    functionVersion: '$LATEST',
-    invokedFunctionArn: 'arn:aws:lambda:us-east-1:123456789012:function:test-function',
-    memoryLimitInMB: '128',
-    awsRequestId: 'test-request-id',
-    logGroupName: '/aws/lambda/test-function',
-    logStreamName: '2023/01/01/[$LATEST]abcdef123456',
-    getRemainingTimeInMillis: () => 30000,
-    done: jest.fn(),
-    fail: jest.fn(),
-    succeed: jest.fn(),
-  };
 
   beforeEach(() => {
     process.env.TRANSCRIPTIONS_TABLE_NAME = 'TestTranscriptionsTable';
@@ -47,7 +33,7 @@ describe('Transcription Controller Integration Tests', () => {
         } as any,
       };
 
-      const result = await handler(event as APIGatewayProxyEvent, mockContext, jest.fn());
+      const result = await handler(event as APIGatewayProxyEvent);
 
       expect(result.statusCode).toBe(200);
       const body = JSON.parse(result.body);
@@ -71,7 +57,7 @@ describe('Transcription Controller Integration Tests', () => {
         } as any,
       };
 
-      const result = await handler(event as APIGatewayProxyEvent, mockContext, jest.fn());
+      const result = await handler(event as APIGatewayProxyEvent);
 
       expect(result.statusCode).toBe(400);
       const body = JSON.parse(result.body);
@@ -96,7 +82,7 @@ describe('Transcription Controller Integration Tests', () => {
         } as any,
       };
 
-      const result = await handler(event as APIGatewayProxyEvent, mockContext, jest.fn());
+      const result = await handler(event as APIGatewayProxyEvent);
 
       expect(result.statusCode).toBe(200);
       const body = JSON.parse(result.body);
@@ -121,7 +107,7 @@ describe('Transcription Controller Integration Tests', () => {
         } as any,
       };
 
-      const result = await handler(event as APIGatewayProxyEvent, mockContext, jest.fn());
+      const result = await handler(event as APIGatewayProxyEvent);
 
       expect(result.statusCode).toBe(400);
       const body = JSON.parse(result.body);
@@ -145,7 +131,7 @@ describe('Transcription Controller Integration Tests', () => {
         } as any,
       };
 
-      const result = await handler(event as APIGatewayProxyEvent, mockContext, jest.fn());
+      const result = await handler(event as APIGatewayProxyEvent);
 
       expect(result.statusCode).toBe(200);
       const body = JSON.parse(result.body);
@@ -172,7 +158,7 @@ describe('Transcription Controller Integration Tests', () => {
         } as any,
       };
 
-      const result = await handler(event as APIGatewayProxyEvent, mockContext, jest.fn());
+      const result = await handler(event as APIGatewayProxyEvent);
 
       expect(result.statusCode).toBe(400);
       const body = JSON.parse(result.body);
@@ -195,7 +181,7 @@ describe('Transcription Controller Integration Tests', () => {
         } as any,
       };
 
-      const result = await handler(event as APIGatewayProxyEvent, mockContext, jest.fn());
+      const result = await handler(event as APIGatewayProxyEvent);
 
       expect(result.statusCode).toBe(400);
       const body = JSON.parse(result.body);
@@ -209,7 +195,7 @@ describe('Transcription Controller Integration Tests', () => {
         httpMethod: 'OPTIONS',
       };
 
-      const result = await handler(event as APIGatewayProxyEvent, mockContext, jest.fn());
+      const result = await handler(event as APIGatewayProxyEvent);
 
       expect(result.statusCode).toBe(200);
       expect(result.headers).toHaveProperty('Access-Control-Allow-Origin', '*');
@@ -231,7 +217,7 @@ describe('Transcription Controller Integration Tests', () => {
         } as any,
       };
 
-      const result = await handler(event as APIGatewayProxyEvent, mockContext, jest.fn());
+      const result = await handler(event as APIGatewayProxyEvent);
 
       expect(result.statusCode).toBe(500);
       const body = JSON.parse(result.body);

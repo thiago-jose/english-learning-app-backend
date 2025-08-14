@@ -242,7 +242,65 @@ paths:
   /users/{userId}/audio/{audioId}/process:
     post:
       operationId: processUserAudio
-      summary: Start processing user's audio file
+      summary: Start processing user's audio file with specified goal
+      tags: [Audio]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User UUID
+        - name: audioId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Audio UUID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProcessAudioRequest'
+      responses:
+        '200':
+          description: Audio processing started successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessAudioResponse'
+        '400':
+          description: Bad request or audio not in processable state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - cannot access another user's resources
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Audio file not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/{userId}/audio/{audioId}/results:
+    get:
+      operationId: getAudioProcessingResults
+      summary: Get audio processing results
       tags: [Audio]
       parameters:
         - name: userId
@@ -261,17 +319,11 @@ paths:
           description: Audio UUID
       responses:
         '200':
-          description: Audio processing started successfully
+          description: Processing results retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProcessAudioResponse'
-        '400':
-          description: Bad request or audio not in processable state
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/ProcessingResultResponse'
         '401':
           description: Unauthorized
           content:
@@ -502,6 +554,357 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
           description: Forbidden - can only change own password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Word Management Endpoints
+  /users/{userId}/words:
+    get:
+      operationId: getUserWords
+      summary: List user's words
+      tags: [Words]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User UUID
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Maximum number of words to return
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Number of words to skip
+      responses:
+        '200':
+          description: User's words retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListWordsResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - cannot access another user's words
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createWord
+      summary: Create a new word
+      tags: [Words]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User UUID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWordRequest'
+      responses:
+        '201':
+          description: Word created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WordResponse'
+        '400':
+          description: Bad request - invalid word data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - cannot create words for another user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/{userId}/words/{wordId}:
+    get:
+      operationId: getWord
+      summary: Get word details
+      tags: [Words]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User UUID
+        - name: wordId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Word UUID
+      responses:
+        '200':
+          description: Word details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WordResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - cannot access another user's words
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Word not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      operationId: updateWord
+      summary: Update word details
+      tags: [Words]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User UUID
+        - name: wordId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Word UUID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWordRequest'
+      responses:
+        '200':
+          description: Word updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WordResponse'
+        '400':
+          description: Bad request - invalid word data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - cannot update another user's words
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Word not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteWord
+      summary: Delete word
+      tags: [Words]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User UUID
+        - name: wordId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Word UUID
+      responses:
+        '204':
+          description: Word deleted successfully
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - cannot delete another user's words
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Word not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/{userId}/words/{wordId}/review:
+    post:
+      operationId: reviewWord
+      summary: Review word for spaced repetition
+      tags: [Words]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User UUID
+        - name: wordId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Word UUID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewWordRequest'
+      responses:
+        '200':
+          description: Word reviewed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WordResponse'
+        '400':
+          description: Bad request - invalid review data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - cannot review another user's words
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Word not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/{userId}/words/review:
+    get:
+      operationId: getWordsForReview
+      summary: Get words due for review
+      tags: [Words]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User UUID
+        - name: date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Review date (defaults to now)
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Maximum number of words to return
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Number of words to skip
+      responses:
+        '200':
+          description: Words for review retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewWordsResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - cannot access another user's words
           content:
             application/json:
               schema:
@@ -802,7 +1205,15 @@ components:
           type: string
           enum: [PROCESSING]
           description: New processing status
-      required: [success, message, transcriptionId, status]
+        goal:
+          type: string
+          enum: [ENGLISH_LEARNING, TRANSCRIPTION_ONLY, SUMMARIZATION, GENERAL_ANALYSIS]
+          description: Processing goal used
+        estimatedCompletionTime:
+          type: string
+          format: date-time
+          description: Estimated completion time (optional)
+      required: [success, message, transcriptionId, status, goal]
 
     # User Schemas
     CreateUserRequest:
@@ -922,11 +1333,292 @@ components:
       required: [email, confirmationCode]
       additionalProperties: false
 
+    # Word Management Schemas
+    CreateWordRequest:
+      type: object
+      properties:
+        word:
+          type: string
+          description: The English word
+          example: "endeavor"
+        meaning:
+          type: string
+          description: Definition of the word
+          example: "To try hard to do or achieve something"
+        usageExample:
+          type: string
+          description: Example sentence using the word
+          example: "She endeavored to complete the project on time"
+        pronunciation:
+          type: string
+          description: Phonetic pronunciation (optional)
+          example: "/ɪnˈdevər/"
+        difficulty:
+          type: string
+          enum: [BEGINNER, INTERMEDIATE, ADVANCED]
+          description: Difficulty level
+          example: "INTERMEDIATE"
+        category:
+          type: string
+          description: Word category (optional)
+          example: "verb"
+      required: [word, meaning, usageExample]
+      additionalProperties: false
+
+    WordResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Word UUID
+        word:
+          type: string
+          description: The English word
+          example: "endeavor"
+        meaning:
+          type: string
+          description: Definition of the word
+          example: "To try hard to do or achieve something"
+        usageExample:
+          type: string
+          description: Example sentence using the word
+          example: "She endeavored to complete the project on time"
+        pronunciation:
+          type: string
+          description: Phonetic pronunciation
+          example: "/ɪnˈdevər/"
+        difficulty:
+          type: string
+          enum: [BEGINNER, INTERMEDIATE, ADVANCED]
+          description: Difficulty level
+          example: "INTERMEDIATE"
+        category:
+          type: string
+          description: Word category
+          example: "verb"
+        nextReviewDate:
+          type: string
+          format: date-time
+          description: Next review date for spaced repetition
+        reviewCount:
+          type: integer
+          description: Number of times reviewed
+          example: 5
+        correctCount:
+          type: integer
+          description: Number of correct reviews
+          example: 4
+        userId:
+          type: string
+          format: uuid
+          description: User UUID who owns this word
+        createdAt:
+          type: string
+          format: date-time
+          description: Word creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+      required: [id, word, meaning, usageExample, difficulty, nextReviewDate, reviewCount, correctCount, userId, createdAt]
+
+    UpdateWordRequest:
+      type: object
+      properties:
+        word:
+          type: string
+          description: The English word
+          example: "endeavor"
+        meaning:
+          type: string
+          description: Definition of the word
+          example: "To try hard to do or achieve something"
+        usageExample:
+          type: string
+          description: Example sentence using the word
+          example: "She endeavored to complete the project on time"
+        pronunciation:
+          type: string
+          description: Phonetic pronunciation
+          example: "/ɪnˈdevər/"
+        difficulty:
+          type: string
+          enum: [BEGINNER, INTERMEDIATE, ADVANCED]
+          description: Difficulty level
+          example: "INTERMEDIATE"
+        category:
+          type: string
+          description: Word category
+          example: "verb"
+      additionalProperties: false
+
+    ReviewWordRequest:
+      type: object
+      properties:
+        isCorrect:
+          type: boolean
+          description: Whether the review was answered correctly
+          example: true
+      required: [isCorrect]
+      additionalProperties: false
+
+    ListWordsResponse:
+      type: object
+      properties:
+        words:
+          type: array
+          items:
+            $ref: '#/components/schemas/WordResponse'
+          description: List of words
+        totalCount:
+          type: integer
+          description: Total number of words for the user
+          example: 42
+        hasMore:
+          type: boolean
+          description: Whether there are more words to fetch
+          example: false
+      required: [words, totalCount]
+
+    ReviewWordsResponse:
+      type: object
+      properties:
+        words:
+          type: array
+          items:
+            $ref: '#/components/schemas/WordResponse'
+          description: List of words due for review
+        totalCount:
+          type: integer
+          description: Total number of words due for review
+          example: 5
+        hasMore:
+          type: boolean
+          description: Whether there are more words to fetch
+          example: false
+        reviewDate:
+          type: string
+          format: date-time
+          description: Review date used for filtering
+      required: [words, totalCount, reviewDate]
+
+    # Enhanced Audio Processing Schemas
+    ProcessAudioRequest:
+      type: object
+      properties:
+        goal:
+          type: string
+          enum: [ENGLISH_LEARNING, TRANSCRIPTION_ONLY, SUMMARIZATION, GENERAL_ANALYSIS]
+          description: Processing goal that determines the workflow
+          example: "ENGLISH_LEARNING"
+        options:
+          type: object
+          properties:
+            languageCode:
+              type: string
+              description: Language code for transcription
+              example: "en-US"
+            speakerLabels:
+              type: boolean
+              description: Enable speaker identification
+              example: true
+            maxSpeakers:
+              type: integer
+              description: Maximum number of speakers to identify
+              example: 2
+          description: Processing options (optional)
+      required: [goal]
+      additionalProperties: false
+
+    ProcessingResultResponse:
+      type: object
+      properties:
+        audioId:
+          type: string
+          format: uuid
+          description: Audio file UUID
+        goal:
+          type: string
+          enum: [ENGLISH_LEARNING, TRANSCRIPTION_ONLY, SUMMARIZATION, GENERAL_ANALYSIS]
+          description: Processing goal used
+        status:
+          type: string
+          enum: [UPLOADED, PROCESSING, PROCESSED, FAILED]
+          description: Current processing status
+        transcriptionText:
+          type: string
+          description: Transcribed text (if available)
+        results:
+          type: object
+          properties:
+            extractedWords:
+              type: array
+              items:
+                $ref: '#/components/schemas/ExtractedWordResult'
+              description: Words extracted for English learning goal
+            summary:
+              type: string
+              description: Text summary (for summarization goal)
+            analysis:
+              type: object
+              description: General analysis results (for analysis goal)
+            transcriptionText:
+              type: string
+              description: Full transcription text
+            processingTime:
+              type: number
+              description: Processing time in seconds
+          description: Goal-specific processing results
+        error:
+          type: string
+          description: Error message if processing failed
+        completedAt:
+          type: string
+          format: date-time
+          description: Processing completion timestamp
+      required: [audioId, goal, status]
+
+    ExtractedWordResult:
+      type: object
+      properties:
+        wordId:
+          type: string
+          format: uuid
+          description: Generated word UUID
+        word:
+          type: string
+          description: The extracted word
+          example: "endeavor"
+        meaning:
+          type: string
+          description: AI-generated meaning
+          example: "To try hard to do or achieve something"
+        usageExample:
+          type: string
+          description: AI-generated usage example
+          example: "She endeavored to complete the project on time"
+        pronunciation:
+          type: string
+          description: AI-generated pronunciation
+          example: "/ɪnˈdevər/"
+        difficulty:
+          type: string
+          enum: [BEGINNER, INTERMEDIATE, ADVANCED]
+          description: AI-determined difficulty level
+        category:
+          type: string
+          description: AI-determined word category
+          example: "verb"
+      required: [wordId, word, meaning, usageExample, difficulty]
+
 tags:
   - name: Health
     description: Health check endpoints
   - name: Audio
     description: Audio file management
+  - name: Words
+    description: Word management and spaced repetition
   - name: Users
     description: User profile management
   - name: Auth
