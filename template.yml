@@ -236,7 +236,7 @@ Resources:
             Priority: 1
       # User pool add-ons
       UserPoolAddOns:
-        AdvancedSecurityMode: ENFORCED
+        AdvancedSecurityMode: OFF
       # Schema (user attributes)
       Schema:
         - Name: email
